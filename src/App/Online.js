@@ -26,7 +26,13 @@ require( {
 	baseUrl: './src/',
 	paths: {
 		text:   'Vendors/text.require',
-		jquery: 'Vendors/jquery-1.9.1'
+		jquery: 'Vendors/jquery-1.9.1',
+		facebook: '//connect.facebook.net/en_US/all' //part of the api
+	},
+	shim: {
+		'facebook' : {
+			exports: 'FB'
+		}
 	}
 },
 	['Engine/GameEngine', 'Core/Context'],
