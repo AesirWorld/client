@@ -28,10 +28,14 @@ define(function()
 		AdminList:   [],
 
 		intravision: false,
-		moveTarget:  null,
+
+		moveAction:  null,
 
 		zeny:        0,
 
-		petId:       0
+		petId:       0,
+
+		hasParty:      false,
+		isPartyLeader: false,
 	};
 });

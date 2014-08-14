@@ -26,6 +26,7 @@ define(function(require)
 	var Inventory          = require('UI/Components/Inventory/Inventory');
 	var Equipment          = require('UI/Components/Equipment/Equipment');
 	var SkillList          = require('UI/Components/SkillList/SkillList');
+	var PartyFriends       = require('UI/Components/PartyFriends/PartyFriends');
 	var Escape             = require('UI/Components/Escape/Escape');
 	var htmlText           = require('text!./BasicInfo.html');
 	var cssText            = require('text!./BasicInfo.css');
@@ -60,12 +61,6 @@ define(function(require)
 
 
 	/**
-	 * @var {stack} Stack to store data if the UI is not in html yet and received parameters
-	 */
-	var _stack = [];
-
-
-	/**
 	 * Initialize UI
 	 */
 	BasicInfo.init = function init()
@@ -90,15 +85,18 @@ define(function(require)
 					break;
 
 				case 'skill':
-					SkillList.ui.toggle();
+					SkillList.toggle();
 					break;
 
 				case 'option':
 					Escape.ui.toggle();
 					break;
 
-				case 'map':
 				case 'party':
+					PartyFriends.toggle();
+					break;
+
+				case 'map':
 				case 'guild':
 				case 'quest':
 			}
@@ -114,15 +112,6 @@ define(function(require)
 	 */
 	BasicInfo.onAppend = function onAppend()
 	{
-		// Bind UI with stack data
-		var i, count;
-
-		for (i = 0, count = _stack.length; i < count; ++i) {
-			this.update.apply( this, _stack[i]);
-		}
-
-		_stack.length = 0;
-
 		// Apply preferences
 		this.ui.css({
 			top:  Math.min( Math.max( 0, _preferences.y), Renderer.height - this.ui.height()),
@@ -240,13 +229,6 @@ define(function(require)
 	 */
 	BasicInfo.update = function ipdate( type, val1, val2 )
 	{
-		// Not loaded yet, add data to stack to bind the UI when
-		// it will be append to the body
-		if (!this.__loaded) {
-			_stack.push(arguments);
-			return;
-		}
-
 		switch (type) {
 			case 'name':
 			case 'blvl':

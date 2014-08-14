@@ -28,6 +28,12 @@ define(function(require)
 
 
 	/**
+	 * @var {boolean} do not focus this UI
+	 */
+	EntityRoom.needFocus = false;
+
+
+	/**
 	 * Once in HTML, focus the input
 	 */
 	EntityRoom.onAppend = function onAppend()
@@ -37,6 +43,12 @@ define(function(require)
 				this.onEnter();
 			}
 		}.bind(this));
+
+		// Avoid player to move to the cell
+		this.ui.mousedown(function(){
+			return false;
+		});
+
 		this.ui.css('zIndex', 45);
 	};
 

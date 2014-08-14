@@ -29,6 +29,18 @@ define(function(require)
 
 
 	/**
+	 * Mouse can cross this UI
+	 */
+	Announce.mouseMode = UIComponent.MouseMode.CROSS;
+
+
+	/**
+	 * @var {boolean} do not focus this UI
+	 */
+	Announce.needFocus = false;
+
+
+	/**
 	 * @var {TimeOut} timer
 	 */
 	var _timer = 0;

@@ -22,6 +22,7 @@ define(function(require)
 	var WeaponAction     = require('./Jobs/WeaponAction');
 	var WeaponJobTable   = require('./Jobs/WeaponJobTable');
 	var BabyTable        = require('./Jobs/BabyTable');
+	var HairIndexTable   = require('./Jobs/HairIndexTable');
 	var MonsterTable     = require('./Monsters/MonsterTable');
 	var PetIllustration  = require('./Pets/PetIllustration');
 	var PetAction        = require('./Pets/PetAction');
@@ -245,7 +246,7 @@ define(function(require)
 	 */
 	DB.getHeadPath = function getHeadPath( id, sex )
 	{
-		return 'data/sprite/\xc0\xce\xb0\xa3\xc1\xb7/\xb8\xd3\xb8\xae\xc5\xeb/' + SexTable[sex] + '/' + id + '_' + SexTable[sex];
+		return 'data/sprite/\xc0\xce\xb0\xa3\xc1\xb7/\xb8\xd3\xb8\xae\xc5\xeb/' + SexTable[sex] + '/' + (HairIndexTable[sex][id] || id)+ '_' + SexTable[sex];
 	};
 
 
@@ -257,7 +258,7 @@ define(function(require)
 	 */
 	DB.getHeadPalPath = function getHeadPalPath( id, pal, sex )
 	{
-		return 'data/palette/\xb8\xd3\xb8\xae/\xb8\xd3\xb8\xae' + id + '_' + SexTable[sex] + '_' + pal + '.pal';
+		return 'data/palette/\xb8\xd3\xb8\xae/\xb8\xd3\xb8\xae' + (HairIndexTable[sex][id] || id) + '_' + SexTable[sex] + '_' + pal + '.pal';
 	};
 
 
@@ -521,6 +522,10 @@ define(function(require)
 		var it = DB.getItemInfo( item.ITID );
 		var str = '';
 
+		if (!item.IsIdentified) {
+			return it.unidentifiedDisplayName;
+		}
+
 		if (item.RefiningLevel) {
 			str = '+' + item.RefiningLevel + ' ';
 		}
@@ -564,7 +569,7 @@ define(function(require)
 		}
 
 
-		str += item.IsIdentified ? it.identifiedDisplayName : it.unidentifiedDisplayName;
+		str += it.identifiedDisplayName;
 
 		if (it.slotCount) {
 			str += ' [' + it.slotCount + ']';

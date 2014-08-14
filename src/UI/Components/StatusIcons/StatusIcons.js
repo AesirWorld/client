@@ -30,9 +30,15 @@ define(function( require )
 
 
 	/**
-	 * @var {Array} Informations waiting for UI to be ready
+	 * Mouse can cross this UI
 	 */
-	var _stack = [];
+	StatusIcons.mouseMode = UIComponent.MouseMode.CROSS;
+
+
+	/**
+	 * @var {boolean} do not focus this UI
+	 */
+	StatusIcons.needFocus = false;
 
 
 	/**
@@ -50,22 +56,6 @@ define(function( require )
 			width:   34,
 			zIndex:  50
 		});
-	};
-
-
-	/**
-	 * Once append
-	 */
-	StatusIcons.onAppend = function onAppend(){
-		if (_stack.length) {
-			var i, count = _stack.length;
-
-			for (i = 0; i < count; ++i) {
-				StatusIcons.update.apply(StatusIcons, _stack[i]);
-			}
-
-			_stack.length = 0;
-		}
 	};
 
 
@@ -89,11 +79,6 @@ define(function( require )
 	{
 		var ui = this.ui;
 		var target;
-
-		if (!ui) {
-			_stack.push([index, state, life]);
-			return;
-		}
 
 		if (!(index in StatusTable)) {
 			return;

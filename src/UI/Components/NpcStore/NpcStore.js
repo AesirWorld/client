@@ -45,7 +45,8 @@ define(function(require)
 	 */
 	NpcStore.Type = {
 		BUY:  0,
-		SELL: 1
+		SELL: 1,
+		VENDING_STORE: 2
 	};
 
 
@@ -97,18 +98,13 @@ define(function(require)
 		// Client do not send packet
 		ui.find('.btn.cancel').click(this.remove.bind(this));
 		ui.find('.btn.buy, .btn.sell').click(this.submit.bind(this));
-		ui.find('.selectall').mousedown(function(){
-			_preferences.select_all = !_preferences.select_all;
-
-			Client.loadFile(DB.INTERFACE_PATH + 'checkbox_' + (_preferences.select_all ? 1 : 0) + '.bmp', function(data){
-				this.style.backgroundImage = 'url('+ data +')';
-			}.bind(this));
-		});
+		ui.find('.selectall').mousedown(onToggleSelectAmount);
 
 		// Resize
-		InputWindow.find('.resize').mousedown(function(event){ onResize(InputWindow); event.stopImmediatePropagation(); return false; });
-		OutputWindow.find('.resize').mousedown(function(event){ onResize(OutputWindow); event.stopImmediatePropagation(); return false; });
+		InputWindow.find('.resize').mousedown(function(){ onResize(InputWindow); });
+		OutputWindow.find('.resize').mousedown(function(){ onResize(OutputWindow); });
 
+		// Items options
 		ui.find('.content')
 			.on('mousewheel DOMMouseScroll', onScroll)
 			.on('contextmenu',      '.icon', onItemInfo)
@@ -119,7 +115,6 @@ define(function(require)
 				delete window._OBJ_DRAG_;
 			});
 
-
 		// Drop items
 		ui.find('.InputWindow, .OutputWindow')
 			.on('drop', onDrop)
@@ -129,8 +124,8 @@ define(function(require)
 			});
 
 		// Hacky drag drop
-		this.draggable.call({ui: InputWindow  });
-		this.draggable.call({ui: OutputWindow });
+		this.draggable.call({ui: InputWindow },  InputWindow.find('.titlebar'));
+		this.draggable.call({ui: OutputWindow }, OutputWindow.find('.titlebar'));
 	};
 
 
@@ -212,13 +207,18 @@ define(function(require)
 	{
 		switch (type) {
 			case NpcStore.Type.BUY:
-				this.ui.find('.WinSell').hide();
+				this.ui.find('.WinSell, .WinVendingStore').hide();
 				this.ui.find('.WinBuy').show();
 				break;
 
 			case NpcStore.Type.SELL:
-				this.ui.find('.WinBuy').hide();
+				this.ui.find('.WinBuy, .WinVendingStore').hide();
 				this.ui.find('.WinSell').show();
+				break;
+
+			case NpcStore.Type.VENDING_STORE:
+				this.ui.find('.WinBuy, .WinSell').hide();
+				this.ui.find('.WinVendingStore').show();
 				break;
 		}
 
@@ -246,8 +246,11 @@ define(function(require)
 		switch (_type) {
 
 			case NpcStore.Type.BUY:
+			case NpcStore.Type.VENDING_STORE:
 				for (i = 0, count = items.length; i < count; ++i) {
-					items[i].index        = i;
+					if (!('index' in items[i])) {
+						items[i].index = i;
+					}
 					items[i].count        = items[i].count || Infinity;
 					items[i].IsIdentified = true;
 					out                   = jQuery.extend({}, items[i]);
@@ -255,8 +258,8 @@ define(function(require)
 
 					addItem( content, items[i]);
 
-					_input.push(items[i]);
-					_output.push(out);
+					_input[items[i].index]  = items[i];
+					_output[items[i].index] = out;
 				}
 				break;
 
@@ -330,6 +333,43 @@ define(function(require)
 
 
 	/**
+	 * Prettify zeny : 1000000 -> 1,000,000
+	 *
+	 * @param {number} zeny
+	 * @param {boolean} use color
+	 * @return {string}
+	 */
+	function prettyZeny( val, useStyle )
+	{
+		var list = val.toString().split('');
+		var i, count = list.length;
+		var str = '';
+
+		for (i = 0; i < count; i++) {
+			str = list[count-i-1] + (i && i%3 ===0 ? ',' : '') + str;
+		}
+
+		if (useStyle) {
+			var style = [
+				'color:#000000; text-shadow:1px 0px #00ffff;', // 0 - 9
+				'color:#0000ff; text-shadow:1px 0px #ce00ce;', // 10 - 99
+				'color:#0000ff; text-shadow:1px 0px #00ffff;', // 100 - 999
+				'color:#ff0000; text-shadow:1px 0px #ffff00;', // 1,000 - 9,999
+				'color:#ff18ff;',                              // 10,000 - 99,999
+				'color:#0000ff;',                              // 100,000 - 999,999
+				'color:#000000; text-shadow:1px 0px #00ff00;', // 1,000,000 - 9,999,999
+				'color:#ff0000;',                              // 10,000,000 - 99,999,999
+				'color:#000000; text-shadow:1px 0px #cece63;', // 100,000,000 - 999,999,999
+				'color:#ff0000; text-shadow:1px 0px #ff007b;', // 1,000,000,000 - 9,999,999,999
+			];
+			str = '<span style="' + style[count-1] + '">' + str + '</span>';
+		}
+
+		return str;
+	}
+
+
+	/**
 	 * Add item to the list
 	 *
 	 * @param {jQuery} content element
@@ -337,8 +377,9 @@ define(function(require)
 	 */
 	function addItem( content, item )
 	{
-		var it = DB.getItemInfo( item.ITID );
+		var it      = DB.getItemInfo(item.ITID);
 		var element = content.find('.item[data-index='+ item.index +']:first');
+		var price;
 
 		// 0 as amount ? remove it
 		if (item.count === 0) {
@@ -355,20 +396,29 @@ define(function(require)
 			return;
 		}
 
+		price = prettyZeny(item.price, _type === NpcStore.Type.VENDING_STORE);
+
+		// Discount price
+		if ('discountprice' in item && item.price !== item.discountprice) {
+			price += ' -> ' + prettyZeny(item.discountprice);
+		}
+		else if ('overchargeprice' in item && item.price !== item.overchargeprice) {
+			price += ' -> ' + prettyZeny(item.overchargeprice);
+		}
 
 		// Create it
 		content.append(
 			'<div class="item" draggable="true" data-index="'+ item.index +'">' +
 				'<div class="icon"></div>' +
 				'<div class="amount">' + (isFinite(item.count) ? item.count : '') + '</div>' +
-				'<div class="name">'+ it.identifiedDisplayName +'</div>' +
-				'<div class="price">'+ (item.discountprice || item.overchargeprice || item.price) +'</div>' +
+				'<div class="name">'+ DB.getItemName(item) +'</div>' +
+				'<div class="price">'+ price +'</div>' +
 				'<div class="unity">Z</div>' +
 			'</div>'
 		);
 
 		// Add the icon once loaded
-		Client.loadFile( DB.INTERFACE_PATH + 'item/' + it.identifiedResourceName + '.bmp', function(data){
+		Client.loadFile( DB.INTERFACE_PATH + 'item/' + (item.IsIdentified ? it.identifiedResourceName : it.unidentifiedResourceName) + '.bmp', function(data){
 			content.find('.item[data-index="'+ item.index +'"] .icon').css('backgroundImage', 'url('+ data +')');
 		});
 	}
@@ -417,11 +467,11 @@ define(function(require)
 		// Start resizing
 		interval = setInterval( resizing, 30);
 
-		// Stop resizing
-		jQuery(window).one('mouseup', function(event){
-			// Only on left click
+		// Stop resizing on left click
+		jQuery(window).on('mouseup.resize', function(event){
 			if (event.which === 1) {
 				clearInterval(interval);
+				jQuery(window).off('mouseup.resize');
 			}
 		});
 	}
@@ -447,13 +497,12 @@ define(function(require)
 
 		return function transferItem(fromContent, toContent, isAdding, index, count)
 		{
-
 			// Add item to the list
 			if (isAdding) {
 
 				// You don't have enough zeny
-				if (_type === NpcStore.Type.BUY) {
-					if (NpcStore.calculateCost() + _input[index].discountprice * count > Session.zeny) {
+				if (_type === NpcStore.Type.BUY || _type === NpcStore.Type.VENDING_STORE) {
+					if (NpcStore.calculateCost() + (_input[index].discountprice || _input[index].price) * count > Session.zeny) {
 						ChatBox.addText( DB.getMessage(55), ChatBox.TYPE.ERROR);
 						return;
 					}
@@ -524,7 +573,7 @@ define(function(require)
 		}
 
 		// Can't buy more than one same stackable item
-		if (_type === NpcStore.Type.BUY && !isStackable && isAdding) {
+		if ((_type === NpcStore.Type.BUY || _type === NpcStore.Type.VENDING_STORE) && !isStackable && isAdding) {
 			if (toContent.find('.item[data-index="'+ item.index +'"]:first').length) {
 				return false;
 			}
@@ -567,7 +616,7 @@ define(function(require)
 		}
 
 		// Just allow item from store
-		if (data.type !== 'item' || data.from !== 'store' || data.container === this.className) {
+		if (data.type !== 'item' || data.from !== 'NpcStore' || data.container === this.className) {
 			return false;
 		}
 
@@ -617,7 +666,7 @@ define(function(require)
 	{
 		var input, from, to;
 
-		if (_type === NpcStore.Type.BUY) {
+		if (_type === NpcStore.Type.BUY || _type === NpcStore.Type.VENDING_STORE) {
 			return;
 		}
 
@@ -644,23 +693,11 @@ define(function(require)
 	/**
 	 * Focus an item
 	 */
-	var onItemFocus = function onItemFocusClosure()
+	function onItemFocus()
 	{
-		var $window = jQuery(window);
-
-		function stopDragDrop() {
-			$window.trigger('mouseup');
-		}
-
-		return function onItemFocus( event )
-		{
-			NpcStore.ui.find('.item.selected').removeClass('selected');
-			jQuery(this).addClass('selected');
-
-			Events.setTimeout( stopDragDrop, 4);
-			event.stopImmediatePropagation();
-		};
-	}();
+		NpcStore.ui.find('.item.selected').removeClass('selected');
+		jQuery(this).addClass('selected');
+	}
 
 
 	/**
@@ -705,11 +742,24 @@ define(function(require)
 		event.originalEvent.dataTransfer.setData('Text',
 			JSON.stringify( window._OBJ_DRAG_ = {
 				type:      'item',
-				from:      'store',
+				from:      'NpcStore',
 				container: container,
 				index:     this.getAttribute('data-index')
 			})
 		);
+	}
+
+
+	/**
+	 * Option to automatically buy/sell alls items instead of specify the amount
+	 */
+	function onToggleSelectAmount()
+	{
+		_preferences.select_all = !_preferences.select_all;
+
+		Client.loadFile(DB.INTERFACE_PATH + 'checkbox_' + (_preferences.select_all ? 1 : 0) + '.bmp', function(data) {
+			this.style.backgroundImage = 'url('+ data +')';
+		}.bind(this));
 	}
 
 

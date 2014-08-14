@@ -20,11 +20,13 @@ define(function(require)
 	var Renderer           = require('Renderer/Renderer');
 	var Client             = require('Core/Client');
 	var Events             = require('Core/Events');
+	var Preferences        = require('Core/Preferences');
 	var KEYS               = require('Controls/KeyEventHandler');
 	var BattleMode         = require('Controls/BattleMode');
 	var History            = require('./History');
 	var UIManager          = require('UI/UIManager');
 	var UIComponent        = require('UI/UIComponent');
+	var ContextMenu        = require('UI/Components/ContextMenu/ContextMenu');
 	var htmlText           = require('text!./ChatBox.html');
 	var cssText            = require('text!./ChatBox.css');
 	var ProcessCommand     = require('Controls/ProcessCommand');
@@ -48,16 +50,21 @@ define(function(require)
 	var _historyNickName = new History(true);
 
 
-	/**
-	 * @var {Array} stack - data saved and waiting for the ui to be ready to be processed
-	 */
-	var _stack = [];
-
 
 	/**
 	 * @var {number} Chatbox position's index
 	 */
 	var _heightIndex = 2;
+
+
+	/**
+	 * @var {Preferences} structure
+	 */
+	var _preferences = Preferences.get('ChatBox', {
+		x:      5,
+		y:      Infinity,
+		height: 2
+	}, 1.0);
 
 
 	/**
@@ -84,6 +91,12 @@ define(function(require)
 
 
 	/**
+	 * @var {number} target message ?
+	 */
+	var _sendTo = ChatBox.TYPE.PUBLIC;
+
+
+	/**
 	 * Storage to cache the private messages
 	 * Ugly system used by official client, can lead to errors
 	 */
@@ -98,8 +111,18 @@ define(function(require)
 	 */
 	ChatBox.init = function init()
 	{
-		this.ui.css('top', (Renderer.height - ( this.ui.find('.content').height() + 53 )) + 'px');
+		_heightIndex = _preferences.height - 1;
+		ChatBox.updateHeight();
+
+		this.ui.css({
+			top:  Math.min( Math.max( 0, _preferences.y - this.ui.height()), Renderer.height - this.ui.height()),
+			left: Math.min( Math.max( 0, _preferences.x), Renderer.width  - this.ui.width())
+		});
+
 		this.draggable( this.ui.find('.input') );
+
+		// Sorry for this un-documented code (see UIComponent for more informations)
+		this.__mouseStopBlock = this.ui.find('.input');
 
 		// Setting chatbox scrollbar
 		Client.loadFiles([DB.INTERFACE_PATH + 'basic_interface/dialscr_down.bmp', DB.INTERFACE_PATH + 'basic_interface/dialscr_up.bmp'], function( down, up ){
@@ -141,8 +164,59 @@ define(function(require)
 			this.type = 'button';
 		});
 
+		// Private message selection
+		this.ui.find('.input .list').click(function(){
+			var $this = this;
+			var names = _historyNickName.list;
+			var i, count = names.length;
+			var pos = jQuery(this).offset();
+			var ui = ContextMenu.ui.find('.menu');
+
+			if (!count) {
+				ChatBox.addText( DB.getMessage(192), ChatBox.TYPE.ERROR);
+				return;
+			}
+
+			ContextMenu.remove();
+			ContextMenu.append();
+
+			for (i = 0; i < count; ++i) {
+				ContextMenu.addElement(names[i], onPrivateMessageUserSelection(names[i]));
+			}
+
+			ContextMenu.addElement('', onPrivateMessageUserSelection(''));
+			ui.css({
+				top:  pos.top - ui.height() - 5,
+				left: pos.left - ui.width() - 5
+			});
+		}).mousedown(function(event){
+			event.stopImmediatePropagation();
+			return false;
+		});
+
+		// Send message to...
+		this.ui.find('.input .filter').click(function(){
+			var pos = jQuery(this).offset();
+			var ui = ContextMenu.ui.find('.menu');
+
+			ContextMenu.remove();
+			ContextMenu.append();
+
+			ContextMenu.addElement(DB.getMessage(85),  onChangeTargetMessage(ChatBox.TYPE.PUBLIC));
+			ContextMenu.addElement(DB.getMessage(86),  onChangeTargetMessage(ChatBox.TYPE.PARTY));
+			ContextMenu.addElement(DB.getMessage(437), onChangeTargetMessage(ChatBox.TYPE.GUILD));
+
+			ui.css({
+				top:  pos.top - ui.height() - 5,
+				left: pos.left - ui.width() + 25
+			});
+		}).mousedown(function(event){
+			event.stopImmediatePropagation();
+			return false;
+		});
+
 		// Change size
-		this.ui.find('.input .size').mousedown(function( event ){
+		this.ui.find('.input .size').click(function( event ){
 			ChatBox.updateHeight(true);
 			event.stopImmediatePropagation();
 			return false;
@@ -182,16 +256,8 @@ define(function(require)
 	 */
 	ChatBox.onAppend = function OnAppend()
 	{
-		var i, count;
-
 		// Focus the input
 		this.ui.find('.input .message').focus();
-
-		// Write memorized texts
-		for (i = 0, count = _stack.length; i < count; ++i) {
-			this.addText.apply(this, _stack[i]);
-		}
-		_stack.length = 0;
 
 		var content = this.ui.find('.content')[0];
 		content.scrollTop = content.scrollHeight;
@@ -204,6 +270,11 @@ define(function(require)
 	ChatBox.onRemove = function OnRemove()
 	{
 		this.ui.find('.content').off('scroll');
+
+		_preferences.y      = parseInt(this.ui.css('top'), 10) + this.ui.height();
+		_preferences.x      = parseInt(this.ui.css('left'), 10);
+		_preferences.height = _heightIndex;
+		_preferences.save();
 	};
 
 
@@ -216,7 +287,9 @@ define(function(require)
 	ChatBox.processBattleMode = function processBattleMode( keyId )
 	{
 		// Direct process
-		if (this.ui.find('.battlemode').is(':visible') || KEYS.ALT || KEYS.SHIFT || KEYS.ctrl) {
+		if (this.ui.find('.battlemode').is(':visible') ||
+			KEYS.ALT || KEYS.SHIFT || KEYS.CTRL ||
+			(keyId >= KEYS.F1 && keyId <= KEYS.F24)) {
 			return BattleMode.process(keyId);
 		}
 
@@ -368,7 +441,7 @@ define(function(require)
 			return;
 		}
 
-		this.onRequestTalk( user, text );
+		this.onRequestTalk( user, text, _sendTo );
 	};
 
 
@@ -382,11 +455,6 @@ define(function(require)
 	 */
 	ChatBox.addText = function addText( text, type, color, override )
 	{
-		if (!this.__loaded) {
-			_stack.push(arguments);
-			return;
-		}
-
 		var $content = this.ui.find('.content');
 
 		if (!color) {
@@ -492,6 +560,17 @@ define(function(require)
 
 
 	/**
+	 * Save user name to nick name history
+	 *
+	 * @param {string} nick name
+	 */
+	ChatBox.saveNickName = function saveNickName( pseudo )
+	{
+		_historyNickName.push(pseudo);
+	};
+
+
+	/**
 	 * Update scroll by block (14px)
 	 */
 	function onScroll( event )
@@ -510,6 +589,46 @@ define(function(require)
 
 		this.scrollTop = Math.floor(this.scrollTop/14) * 14 - (delta * 14);
 		return false;
+	}
+
+
+	/**
+	 * Change private message nick name
+	 *
+	 * @param {string} nick name
+	 * @return {function} callback closure
+	 */
+	function onPrivateMessageUserSelection(name)
+	{
+		return function onPrivateMessageUserSelectionClosure()
+		{
+			ChatBox.ui.find('.input .username').val(name);
+		};
+	}
+
+
+	/**
+	 * Change target of global chat (party, guild)
+	 *
+	 * @param {number} type constant
+	 */
+	function onChangeTargetMessage(type)
+	{
+		return function onChangeTargetMessageClosure()
+		{
+			var $input = ChatBox.ui.find('.input .message');
+
+			$input.removeClass('guild party');
+
+			if (type & ChatBox.TYPE.PARTY) {
+				$input.addClass('party');
+			}
+			else if (type & ChatBox.TYPE.GUILD) {
+				$input.addClass('guild');
+			}
+
+			_sendTo = type;
+		};
 	}
 
 

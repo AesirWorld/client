@@ -47,6 +47,7 @@ define(function( require )
 	var ChatRoomCreate   = require('UI/Components/ChatRoomCreate/ChatRoomCreate');
 	var Emoticons        = require('UI/Components/Emoticons/Emoticons');
 	var SkillList        = require('UI/Components/SkillList/SkillList');
+	var PartyFriends     = require('UI/Components/PartyFriends/PartyFriends');
 
 
 	/**
@@ -135,13 +136,20 @@ define(function( require )
 		require('./MapEngine/Item').call();
 		require('./MapEngine/PrivateMessage').call();
 		require('./MapEngine/Storage').call();
-		require('./MapEngine/Group').call();
+		require('./MapEngine/Group').init();
 		require('./MapEngine/Guild').call();
 		require('./MapEngine/Skill').call();
 		require('./MapEngine/ChatRoom').call();
 		require('./MapEngine/Pet').call();
 		require('./MapEngine/Store').call();
 		require('./MapEngine/Trade').call();
+		require('./MapEngine/Friends').init();
+
+		// Prepare UI
+		PartyFriends.prepare();
+		StatusIcons.prepare();
+		BasicInfo.prepare();
+		ChatBox.prepare();
 	}
 
 
@@ -175,6 +183,11 @@ define(function( require )
 	{
 		Session.Entity = new Entity( Session.Character );
 		Session.Entity.onWalkEnd = onWalkEnd;
+
+		// Reset
+		Session.petId         =     0;
+		Session.hasParty      = false;
+		Session.isPartyLeader = false;
 
 		BasicInfo.update('blvl', Session.Character.level );
 		BasicInfo.update('jlvl', Session.Character.joblevel );
@@ -250,6 +263,7 @@ define(function( require )
 			ChatRoomCreate.append();
 			Emoticons.append();
 			SkillList.append();
+			PartyFriends.append();
 
 			// Map loaded
 			Network.sendPacket(
@@ -378,6 +392,7 @@ define(function( require )
 			StatusIcons.clean();
 			ChatBox.clean();
 			ShortCut.clean();
+			PartyFriends.clean()
 			MapRenderer.free();
 			Renderer.stop();
 			onRestart();
@@ -394,7 +409,10 @@ define(function( require )
 		switch (pkt.result) {
 			// Disconnect
 			case 0:
+				StatusIcons.clean();
 				ChatBox.clean();
+				ShortCut.clean();
+				PartyFriends.clean()
 				Renderer.stop();
 				onExitSuccess();
 				break;
@@ -414,29 +432,47 @@ define(function( require )
 	 *
 	 * @param {string} user
 	 * @param {string} text
+	 * @param {number} target
 	 */
-	function onRequestTalk( user, text )
+	function onRequestTalk( user, text, target )
 	{
 		var pkt;
+		var flag_party = text[0] === '%' || KEYS.CTRL;
+		var flag_guild = text[0] === '$' || KEYS.ALT;
 
+		text = text.replace(/^(\$|\%)/, '');
+
+		// Private messages
 		if (user.length) {
 			pkt          = new PACKET.CZ.WHISPER();
 			pkt.receiver = user;
 			pkt.msg      = text;
-		}
-		else if (text[0] === '%') {
-			pkt     = new PACKET.CZ.REQUEST_CHAT_PARTY();
-			pkt.msg = Session.Entity.display.name + ' : ' + text.substr(1);
-		}
-		else if (text[0] === '$') {
-			pkt     = new PACKET.CZ.GUILD_CHAT();
-			pkt.msg = Session.Entity.display.name + ' : ' + text.substr(1);
-		}
-		else {
-			pkt     = new PACKET.CZ.REQUEST_CHAT();
-			pkt.msg = Session.Entity.display.name + ' : ' + text;
+			Network.sendPacket(pkt);
+			return;
 		}
 
+		// Set off/on flags
+		if (flag_party) {
+			target = (target & ~ChatBox.TYPE.PARTY) | (~target & ChatBox.TYPE.PARTY);
+		}
+
+		if (flag_guild) {
+			target = (target & ~ChatBox.TYPE.GUILD) | (~target & ChatBox.TYPE.GUILD);
+		}
+
+		// Get packet
+		if (target & ChatBox.TYPE.PARTY) {
+			pkt = new PACKET.CZ.REQUEST_CHAT_PARTY();
+		}
+		else if (target & ChatBox.TYPE.GUILD) {
+			pkt = new PACKET.CZ.GUILD_CHAT();
+		}
+		else {
+			pkt = new PACKET.CZ.REQUEST_CHAT();
+		}
+
+		// send packet
+		pkt.msg = Session.Entity.display.name + ' : ' + text;
 		Network.sendPacket(pkt);
 	}
 
@@ -592,30 +628,10 @@ define(function( require )
 	function onWalkEnd()
 	{
 		// No action to do ?
-		if (!Session.moveTarget) {
-			return;
-		}
+		if (Session.moveAction) {
+			Network.sendPacket(Session.moveAction);
 
-		var pkt, entity = Session.moveTarget;
-
-		Session.moveTarget = null;
-
-		// Not in scene anymore.
-		if (!EntityManager.get(entity.GID)) {
-			return;
-		}
-
-		switch (entity.objecttype) {
-			case Entity.TYPE_MOB:
-			case Entity.TYPE_PC:
-				entity.onFocus();
-				break;
-
-			case Entity.TYPE_ITEM:
-				pkt       = new PACKET.CZ.ITEM_PICKUP();
-				pkt.ITAID = entity.GID;
-				Network.sendPacket(pkt);
-				break;
+			Session.moveAction = null;
 		}
 	}
 

@@ -34,7 +34,7 @@
 			xray: [ "visionary_tab.txt "],
 			lua:  [ "accessoryid.lua", "accname.lua"],
 			lua_key: /ACCESSORY_([a-zA-Z0-9_-]+)(\s+)?=(\s+)?(\d+),?/g,
-			lua_val: /\[ACCESSORY_IDs\.ACCESSORY_([a-zA-Z0-9_-]+)\](\s+)?=(\s+)?"_([^"]+)",?/g
+			lua_val: /\[ACCESSORY_IDs\.ACCESSORY_([a-zA-Z0-9_-]+)\](\s+)?=(\s+)?"([^"]+)",?/g
 		},
 
 		MonsterTable: {
@@ -43,7 +43,7 @@
 			txt:  [],
 			xray: ["monstrosity_tab.txt"],
 			lua:  ["npcidentity.lua", "jobname.lua"],
-			lua_key: /\["JT_([^"]+)"\](\s+)?\=(\s+)?(\d+),?/g,
+			lua_key: /JT_(\w+)(.+)?\=(\s+)?(\d+),?/g,
 			lua_val: /\[jobtbl\.JT_([^\]]+)\](\s+)?=(\s+)?"([^"]+)",?/g
 		}
 	};
