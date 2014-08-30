@@ -176,6 +176,11 @@ define(function(require)
 		var user = _inputUsername.val();
 		var pass = _inputPassword.val();
 
+		// Dont allow blank user/pass
+		if(!user || !pass) {
+			return false;
+		}
+
 		// Store variable in localStorage
 		_preferences.userID     = user;
 		_preferences.save();
