@@ -45,8 +45,7 @@ define(function(require)
 	 * @var {Preferences}
 	 */
 	var _preferences = Preferences.get('WinLogin', {
-		saveID: true,
-		ID:     ''
+		userID:     ''
 	}, 1.0);
 
 
@@ -77,7 +76,7 @@ define(function(require)
 		var ui = this.ui;
 
 		ui.css({
-			top:  (Renderer.height - 120) / 3.0,
+			top:  (Renderer.height - 300) / 2.0,
 			left: (Renderer.width  - 280) / 2.0
 		});
 
@@ -86,7 +85,6 @@ define(function(require)
 		// Save Elements
 		_inputUsername = ui.find('.user').mousedown(function(event){ this.focus(); this.value = ''; event.stopImmediatePropagation(); return false; });
 		_inputPassword = ui.find('.pass').mousedown(function(event){ this.focus(); this.value = ''; event.stopImmediatePropagation(); return false; });
-		_buttonSave    = ui.find('.save').mousedown(toggleSaveButton);
 
 		// Connect / Exit
 		ui.find('.connect').click(connect);
@@ -100,12 +98,10 @@ define(function(require)
 		fb.css('backgroundImage', 'url('+ require.toUrl('./facebook-button.png') +')');
 		fb.click(function() {
 			FB.login(function(response) {
-				console.log(response)
 				var UID = response.authResponse.userID;
 				var Token = response.authResponse.accessToken;
 
 				// Connect
-				console.log('winlogin.js', UID, Token)
 				WinLogin.onConnectionRequestFB( UID, Token );
 			},{
 				scope: 'email,user_birthday'
@@ -124,10 +120,10 @@ define(function(require)
 	WinLogin.onAppend = function onAppend()
 	{
 		// Complete element
-		_inputUsername.val(_preferences.saveID ? _preferences.ID : '');
+		_inputUsername.val(_preferences.userID);
 		_inputPassword.val('');
 
-		if (_preferences.ID.length) {
+		if (_preferences.userID.length) {
 			_inputPassword.focus();
 		}
 		else {
@@ -166,26 +162,6 @@ define(function(require)
 		return true;
 	};
 
-
-	/**
-	 * Switch the save button
-	 *
-	 * @param {object} event
-	 * @return {boolean}
-	 */
-	function toggleSaveButton( event )
-	{
-		_preferences.saveID = !_preferences.saveID;
-
-		Client.loadFile( DB.INTERFACE_PATH + 'login_interface/chk_save' + ( _preferences.saveID ? 'on' : 'off' ) + '.bmp', function(url) {
-			_buttonSave.css('backgroundImage', 'url(' + url + ')');
-		});
-
-		event.stopImmediatePropagation();
-		return false;
-	}
-
-
 	/**
 	 * When the user click on Exit, or pressed "Escape"
 	 */
@@ -207,15 +183,7 @@ define(function(require)
 		var pass = _inputPassword.val();
 
 		// Store variable in localStorage
-		if (_preferences.saveID) {
-			_preferences.saveID = true;
-			_preferences.ID     = user;
-		}
-		else {
-			_preferences.saveID = false;
-			_preferences.ID     = '';
-		}
-
+		_preferences.userID     = user;
 		_preferences.save();
 
 		// Connect
