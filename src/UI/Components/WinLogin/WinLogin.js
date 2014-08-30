@@ -59,7 +59,7 @@ define(function(require)
 	 * @var {jQuery} userpass input
 	 */
 	var _inputPassword;
-	
+
 
 	/**
 	 * Initialize win_login UI - Inherit from UIComponent
@@ -70,7 +70,7 @@ define(function(require)
 		var ui = this.ui;
 
 		ui.css({
-			top:  (Renderer.height - 300) / 2.0,
+			top:  (Renderer.height - 270) / 2.0,
 			left: (Renderer.width  - 280) / 2.0
 		});
 
