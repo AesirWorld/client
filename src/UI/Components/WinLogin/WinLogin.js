@@ -59,13 +59,7 @@ define(function(require)
 	 * @var {jQuery} userpass input
 	 */
 	var _inputPassword;
-
-
-	/**
-	 * @var {jQuery} save login ?
-	 */
-	var _buttonSave;
-
+	
 
 	/**
 	 * Initialize win_login UI - Inherit from UIComponent
