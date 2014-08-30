@@ -1,8 +1,16 @@
-#win_login { position:absolute; width:280px; height:120px; z-index:1; }
-#win_login input { position:absolute; left:91px; height:18px; width:127px; border:none; background-color:transparent; padding-left:2px; outline:none;}
-#win_login input.user { top:29px; }
-#win_login input.pass { top:61px; }
-#win_login .save { position:absolute; top:32px; right:10px; display:block; width:38px; height:10px; border:none; background-color:transparent; background-repeat:no-repeat; }
-#win_login .btn { position:absolute; border:0; width:42px; height:20px; bottom:4px; background-color:transparent; }
-#win_login .btn.connect { right:50px; }
-#win_login .btn.exit { right:5px; }
+#win_login {
+     position:absolute; width:350px; height:270px; z-index:1; background:#fff; color:#222;
+     -moz-box-shadow: 0 0 0 3px rgba(0,0,0,0.3); -webkit-box-shadow: 0 0 0 3px rgba(0,0,0,0.3); box-shadow: 0 0 0 3px rgba(0,0,0,0.3);
+}
+#win_login .logo { width:320px; height:170px; position:absolute; top:-170px; left:15px; }
+#win_login .message { text-align:center; font-size:24px; margin:10px 0px; }
+#win_login .user-auth input { margin-top:5px; height:30px; width:250px; background:#f8f8f8; font-size:14px; border:1px solid #ccc; border-radius:3px; padding-left:4px; }
+#win_login .user-auth label { font-size:14px; font-weight:bold; }
+#win_login .user-auth .btn { height:20px; margin-top:5px; padding:0px 10px; font-weight:bold; font-size:16px; border:none; background:transparent; text-decoration:none; color:#222; }
+#win_login .user-auth .connect { border-left:2px solid #90BF2B; }
+#win_login .user-auth .register { border-left:2px solid #FC888D; }
+#win_login .user-auth .forgot { border-left:2px solid #0098A2; }
+#win_login .facebook-auth .mes { text-align:center; font-size:20px; margin:15px 0px; }
+#win_login .facebook-auth button { width:300px; height:44px; margin-left:22px; border:none; }
+#win_login .save { }
+#win_login .exit { position:absolute; top:0px; right:5px; color:#444; font-size:16px; font-weight:bold; border:none; background:transparent; }

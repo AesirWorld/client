@@ -1,10 +1,37 @@
-<div id="win_login" data-background="login_interface/win_login.bmp">
-	<!-- User Auth -->
-	<input class="user" type="text" value="" />
-	<input class="pass" type="password" value=""/>
-	<button class="save" type="button" data-background="login_interface/chk_saveoff.bmp" data-preload="login_interface/chk_saveon.bmp"></button>
+<div id="win_login">
+	<!-- Exit btn -->
+	<button class="exit" type="button">x</button>
 
-	<!-- Buttons -->
-	<button class="btn connect" type="submit" data-background="login_interface/btn_connect.bmp" data-hover="login_interface/btn_connect_a.bmp" data-down="login_interface/btn_connect_b.bmp"></button>
-	<button class="btn exit" type="button" data-background="login_interface/btn_exit.bmp" data-hover="login_interface/btn_exit_a.bmp" data-down="login_interface/btn_exit_b.bmp"></button>
+	<!-- Server Logo -->
+	<div class="logo"></div>
+
+	<!-- Friendly Message -->
+	<div class="message">Authenticate</div>
+
+	<!-- User Auth -->
+	<div class="user-auth">
+		<table>
+			<tr>
+				<td><label>Login:</label></td>
+				<td><input class="user" type="text" pattern=".{4,24}" required value="" /></td>
+			</tr>
+			<tr>
+				<td><label>Password:</label></td>
+				<td><input class="pass" type="password" pattern=".{4,24}" required value="" /></td>
+			</tr>
+			<tr>
+				<td></td>
+				<td>
+					<button class="btn connect" type="submit">Enter</button>
+					<button class="btn register" onclick="window.open('//www.aesirworld.com/account/create')">Register</button>
+					<button class="btn forgot" onclick="window.open('//www.aesirworld.com/account/resetpass')">Recover</button>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<div class="facebook-auth">
+		<div class="mes">Or...</div>
+		<button class="facebook" type="button"></button>
+	</div>
 </div>

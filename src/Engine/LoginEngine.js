@@ -175,6 +175,7 @@ define(function( require )
 		// Hooking win_login
 		WinLogin.onConnectionRequest = onConnectionRequest;
 		WinLogin.onExitRequest       = onExitRequest;
+		WinLogin.onConnectionRequestFB = onConnectionRequestFB; // fb login
 
 		// Autologin features
 		if (autoLogin instanceof Array && autoLogin[0] && autoLogin[1]) {
@@ -257,6 +258,65 @@ define(function( require )
 			pkt            = new PACKET.CA.LOGIN();
 			pkt.ID         = username;
 			pkt.Passwd     = password;
+			pkt.Version    = parseInt(_server.version, 10);
+			pkt.clienttype = parseInt(_server.langtype, 10);
+			Network.sendPacket(pkt);
+		});
+	}
+
+
+	/**
+	* Trying to connect to Login server
+	* Using facebook
+	*
+	* @param {string} userid
+	* @param {string} token
+	*/
+	function onConnectionRequestFB( uid, token )
+	{
+		// Play "¹öÆ°¼Ò¸®.wav" (possible problem with charset)
+		Sound.play('\xB9\xF6\xC6\xB0\xBC\xD2\xB8\xAE.wav');
+
+		// Add the loading screen
+		// Store the ID to use for the ping
+		WinLogin.remove();
+		WinLoading.append();
+		_loginID = uid;
+
+		// Try to connect
+		Network.connect( _server.address, _server.port, function( success ) {
+			// Fail to connect...
+			if ( !success ) {
+				UIManager.showErrorBox(DB.getMessage(1));
+				return;
+			}
+
+			var pkt;
+			var hash = Configs.get('clientHash');
+
+			// Client hash config
+			if (hash) {
+				// Convert hexadecimal hash to binary
+				if (/^[a-f0-9]+$/i.test(hash)) {
+					var str = '';
+					var i, count = hash.length;
+
+					for (i = 0; i < count; i += 2) {
+						str += String.fromCharCode(parseInt(hash.substr(i,2),16));
+					}
+
+					hash = str;
+				}
+
+				pkt           = new PACKET.CA.EXE_HASHCHECK();
+				pkt.HashValue = hash;
+				Network.sendPacket(pkt);
+			}
+
+			// Try to connect
+			pkt            = new PACKET.CA.LOGIN_FB();
+			pkt.UID        = uid;
+			pkt.Token      = token;
 			pkt.Version    = parseInt(_server.version, 10);
 			pkt.clienttype = parseInt(_server.langtype, 10);
 			Network.sendPacket(pkt);

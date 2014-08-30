@@ -15,7 +15,6 @@ define(function(require)
 	/**
 	 * Dependencies
 	 */
-	var FB			= require('facebook');
 	var DB          = require('DB/DBManager');
 	var Client      = require('Core/Client');
 	var Preferences = require('Core/Preferences');
@@ -25,14 +24,6 @@ define(function(require)
 	var UIComponent = require('UI/UIComponent');
 	var htmlText    = require('text!./WinLogin.html');
 	var cssText     = require('text!./WinLogin.css');
-
-
-	/** TEMP **/
-	FB.init({
-		appId: 582845158468483,
-		status: false,
-		//frictionlessRequests: true
-	});
 
 
 	/**
@@ -77,7 +68,7 @@ define(function(require)
 		var ui = this.ui;
 
 		ui.css({
-			top:  (Renderer.height - 120) / 3.0,
+			top:  (Renderer.height - 120) / 1.5,
 			left: (Renderer.width  - 280) / 2.0
 		});
 
@@ -91,30 +82,6 @@ define(function(require)
 		// Connect / Exit
 		ui.find('.connect').click(connect);
 		ui.find('.exit').click(exit);
-
-		// Logo img
-		ui.find('.logo').css('backgroundImage', 'url('+ require.toUrl('./logo.png') +')');
-
-		// Facebook btn
-		var fb = this.ui.find('.facebook');
-		fb.css('backgroundImage', 'url('+ require.toUrl('./facebook-button.png') +')');
-		fb.click(function() {
-			FB.login(function(response) {
-				console.log(response)
-				var UID = response.authResponse.userID;
-				var Token = response.authResponse.accessToken;
-
-				// Connect
-				console.log('winlogin.js', UID, Token)
-				WinLogin.onConnectionRequestFB( UID, Token );
-			},{
-				scope: 'email,user_birthday'
-			});
-		})
-
-		FB.getLoginStatus(function(response) {
-			console.log('winlogin.js', response)
-		});
 	};
 
 
@@ -126,6 +93,11 @@ define(function(require)
 		// Complete element
 		_inputUsername.val(_preferences.saveID ? _preferences.ID : '');
 		_inputPassword.val('');
+
+		// Display save button
+		Client.loadFile( DB.INTERFACE_PATH + 'login_interface/chk_save' + ( _preferences.saveID ? 'on' : 'off' ) + '.bmp', function(url) {
+			_buttonSave.css('backgroundImage', 'url(' + url + ')');
+		});
 
 		if (_preferences.ID.length) {
 			_inputPassword.focus();
@@ -234,12 +206,6 @@ define(function(require)
 	 * Abstract function when user want to exit
 	 */
 	WinLogin.onExitRequest = function onExitRequest(){};
-
-
-	/**
-	* Abstract function once user want to connect w/ facebook
-	*/
-	WinLogin.onConnectionRequestFB = function onConnectionRequestFB(/* userid, token */){};
 
 
 	/**

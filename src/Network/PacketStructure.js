@@ -49,6 +49,25 @@ define(['Utils/BinaryWriter', './PacketVerManager'], function(BinaryWriter, PACK
 		return pkt_buf;
 	};
 
+	// Custom packet, for auth with facebook
+	// 0x1388 - 5000
+	PACKET.CA.LOGIN_FB = function PACKET_CA_LOGIN_FB() {
+		this.Version = 0;
+		this.UID = '';
+		this.Token = '';
+		this.clienttype = 0;
+	};
+	PACKET.CA.LOGIN_FB.prototype.build = function() {
+		var pkt_len = 2 + 4 + 20 + 255 + 1;
+		var pkt_buf = new BinaryWriter(pkt_len);
+
+		pkt_buf.writeShort(0x1388);
+		pkt_buf.writeULong(this.Version);
+		pkt_buf.writeString(this.UID, 20);
+		pkt_buf.writeString(this.Token, 255);
+		pkt_buf.writeUChar(this.clienttype);
+		return pkt_buf;
+	};
 
 	// 0x65
 	PACKET.CH.ENTER = function PACKET_CH_ENTER() {
