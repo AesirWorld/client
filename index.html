@@ -18,55 +18,16 @@
                     port:      6900,
                     version:   25,
                     langtype:  12,
-                    packetver: 20131223
+                    packetver: 20100730
                 }],
                 development: true,
                 packetKeys: true,
-                skipServerList: true
+                skipServerList: true,
+                skipIntro: true
             };
         </script>
         <script type="text/javascript" src="src/Vendors/require.js"></script>
         <script type="text/javascript" src="src/App/Online.js"></script>
-        <script src="//code.jquery.com/jquery-1.9.1.min.js"></script>
-        <script src="//crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/aes.js"></script>
-        <script type="text/javascript">
-        $( document ).ready(function() {
-            var game_key = '575302d91cc017d7ee2285674ed57ee4'
-            var secret_key = 'aa08d21855019f5f04ba3a42f27325c1b389f90f'
-            var category = "design"
-
-            var message = {event_id:"pickup:rocket_launcher",
-                           user_id:'randomUser',
-                           session_id:'session_1',
-                           build:'1.0a',
-                           value:1.0,
-                           area:"auctionhouse"};
-
-            var json_message = JSON.stringify(message);
-            var md5_msg = CryptoJS.MD5(json_message + secret_key);
-            var header_auth_hex = CryptoJS.enc.Hex.stringify(md5_msg);
-
-            var url = 'http://api-eu.gameanalytics.com/1/'+game_key+'/'+category;
-
-            $.ajax({
-            type: 'POST',
-            url: url,
-            data: json_message,
-            headers: {
-            "Authorization": header_auth_hex,
-            },
-            beforeSend: function (xhr) {
-            xhr.setRequestHeader('Content-Type', 'text/plain');
-            },
-            success: function(data, textStatus, XMLHttpRequest) {
-            console.log("GOOD! textStatus: " + textStatus);
-            },
-            error: function(XMLHttpRequest, textStatus, errorThrown) {
-            console.log("ERROR ajax call. error: " + errorThrown + ", url: " + url);
-            }
-            });
-        });
-        </script>
     </head>
     <body>
     </body>
