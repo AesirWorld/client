@@ -98,7 +98,7 @@ define(function( require )
 	 * @var {number} camera zoom
 	 */
 	Camera.MAX_ZOOM = 10;
-	
+
 
 	/**
 	 * @var {number} Camera direction
@@ -109,6 +109,10 @@ define(function( require )
 	Camera.rotationFrom = -360;
 	Camera.rotationTo   =  360;
 	Camera.range        =  240;
+
+	setInterval(function() {
+		console.log(Camera.direction, 'direcition')
+	}, 3000);
 
 
 	/**
@@ -155,13 +159,13 @@ define(function( require )
 		this.angle[1]      = this.rotationFrom % 360.0;
 		this.angleFinal[0] = this.range % 360.0;
 		this.angleFinal[1] = this.rotationFrom % 360.0;
-	
+
 		this.position[0] = -this.target.position[0];
 		this.position[1] = -this.target.position[1];
 		this.position[2] =  this.target.position[2];
 	};
-	
-	
+
+
 	/**
 	 * Save the camera settings
 	 */
@@ -261,7 +265,7 @@ define(function( require )
 		// Update last check
 		this.action.x = +Mouse.screen.x ;
 		this.action.y = +Mouse.screen.y ;
-		
+
 		this.save();
 	};
 
@@ -276,7 +280,7 @@ define(function( require )
 		this.zoomFinal += delta * 15;
 		this.zoomFinal  = Math.min( this.zoomFinal, Math.abs(this.altitudeTo-this.altitudeFrom) * this.MAX_ZOOM );
 		this.zoomFinal  = Math.max( this.zoomFinal,  2.0 );
-		
+
 		this.save();
 	};
 
@@ -310,7 +314,7 @@ define(function( require )
 
 		// Zoom
 		this.zoom        += ( this.zoomFinal - this.zoom ) * lerp * 2.0;
-		
+
 		// Angle
 		this.angle[0]    += ( this.angleFinal[0] - this.angle[0] ) * lerp * 2.0;
 		this.angle[1]    += ( this.angleFinal[1] - this.angle[1] ) * lerp * 2.0;

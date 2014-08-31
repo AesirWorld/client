@@ -50,6 +50,8 @@ define(function( require )
 	var SkillList        = require('UI/Components/SkillList/SkillList');
 	var PartyFriends     = require('UI/Components/PartyFriends/PartyFriends');
 
+	require('Controls/WalkKeysControl');
+
 
 	/**
 	 * @var {string mapname}
@@ -126,6 +128,7 @@ define(function( require )
 
 		MapControl.init();
 		MapControl.onRequestWalk     = onRequestWalk;
+		MapControl.onRequestWalk2    = onRequestWalk2;
 		MapControl.onRequestStopWalk = onRequestStopWalk;
 
 
@@ -534,6 +537,28 @@ define(function( require )
 
 
 	/**
+	* Ask to move using keys
+	*/
+	function onRequestWalk2(x, y)
+	{
+		Events.clearTimeout(_walkTimer);
+
+		// If siting, update direction
+		if (Session.Entity.action === Session.Entity.ACTION.SIT /*|| KEYS.SHIFT see: http://forum.robrowser.com/index.php?topic=32240#msg32446 */) {
+			Session.Entity.lookTo( x, y );
+
+			var pkt     = new PACKET.CZ.CHANGE_DIRECTION();
+			pkt.headDir = Session.Entity.headDir;
+			pkt.dir     = Session.Entity.direction;
+			Network.sendPacket(pkt);
+			return;
+		}
+
+		walkIntervalProcess2(x, y);
+	}
+
+
+	/**
 	 * Stop moving
 	 */
 	function onRequestStopWalk()
@@ -563,6 +588,38 @@ define(function( require )
 			if (!checkFreeCell(Mouse.world.x, Mouse.world.y, 1, pkt.dest)) {
 				pkt.dest[0] = Mouse.world.x;
 				pkt.dest[1] = Mouse.world.y;
+			}
+
+			Network.sendPacket(pkt);
+		}
+
+		Events.clearTimeout(_walkTimer);
+		_walkTimer    =  Events.setTimeout( walkIntervalProcess, 500);
+		_walkLastTick = +Renderer.tick;
+	}
+
+
+	/**
+	* Moving function
+	*/
+	function walkIntervalProcess2(x, y)
+	{
+		// setTimeout isn't accurate, so reduce the value
+		// to avoid possible errors.
+		if (_walkLastTick + 450 > Renderer.tick) {
+			return;
+		}
+
+		var isWalkable   = (x > -1 && y > -1);
+		var isCurrentPos = (Math.round(Session.Entity.position[0]) === x &&
+							Math.round(Session.Entity.position[1]) === y);
+
+		if (isWalkable && !isCurrentPos) {
+			var pkt = new PACKET.CZ.REQUEST_MOVE();
+
+			if (!checkFreeCell(x, y, 1, pkt.dest)) {
+				pkt.dest[0] = x;
+				pkt.dest[1] = y;
 			}
 
 			Network.sendPacket(pkt);

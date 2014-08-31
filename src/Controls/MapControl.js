@@ -30,7 +30,6 @@ define(function( require )
 
 	require('Controls/ScreenShot');
 
-
 	/**
 	 * @var {int16[2]} screen position
 	 */
@@ -48,6 +47,11 @@ define(function( require )
 	 */
 	MapControl.onRequestWalk = function(){};
 
+
+	/**
+	* Callback used when requesting to move somewhere, using keys
+	*/
+	MapControl.onRequestWalk2 = function(){};
 
 	/**
 	 * Callback used when request to stop move
@@ -219,7 +223,7 @@ define(function( require )
 		event.stopImmediatePropagation();
 		return false;
 	}
-	
+
 
 
 	/**
