@@ -23,6 +23,9 @@ define(function(require)
 	var Session       = require('Engine/SessionStorage');
 	var PACKET        = require('Network/PacketStructure');
 	var Camera        = require('Renderer/Camera');
+	var glMatrix      = require('Vendors/gl-matrix');
+	var vec2          = glMatrix.vec2;
+	var mat2          = glMatrix.mat2;
 
 
 	/**
@@ -30,187 +33,65 @@ define(function(require)
 	 */
 	jQuery(window).keydown(function( event )
 	{
-		var x = 0, y = 0;
-		var mul_x = 0, mul_y = 0;
-
-		switch(event.which) {
-			case KEYS.UP:
-				// Adjust up direction based on camera direction
-				switch(Camera.direction) {
-					case 0:
-						mul_x = 0;
-						mul_y = 1;
-						break;
-					case 1:
-						mul_x = -1;
-						mul_y = 1;
-						break;
-					case 2:
-						mul_x = -1;
-						mul_y = 0;
-						break;
-					case 3:
-						mul_x = -1;
-						mul_y = -1;
-						break;
-					case 4:
-					case -4:
-						mul_x = 0;
-						mul_y = -1;
-						break;
-					case -3:
-						mul_x = 1;
-						mul_y = -1;
-						break;
-					case -2:
-						mul_x = 1;
-						mul_y = 0;
-						break;
-					case -1:
-						mul_x = 1;
-						mul_y = 1;
-						break;
-				}
-
-				x = Math.round(Session.Entity.position[0] + 5 * mul_x);
-				y = Math.round(Session.Entity.position[1] + 5 * mul_y);
-
-				MapControl.onRequestWalk2(x, y);
-				event.stopImmediatePropagation();
-				return false;
-			case KEYS.DOWN:
-				// Adjust down direction based on camera direction
-				switch(Camera.direction) {
-					case 0:
-						mul_x = 0;
-						mul_y = -1;
-						break;
-					case 1:
-						mul_x = 1;
-						mul_y = -1;
-						break;
-					case 2:
-						mul_x = 1;
-						mul_y = 0;
-						break;
-					case 3:
-						mul_x = 1;
-						mul_y = 1;
-						break;
-					case 4:
-					case -4:
-						mul_x = 0;
-						mul_y = 1;
-						break;
-					case -3:
-						mul_x = -1;
-						mul_y = 1;
-						break;
-					case -2:
-						mul_x = -1;
-						mul_y = 0;
-						break;
-					case -1:
-						mul_x = -1;
-						mul_y = -1;
-						break;
-				}
-
-				x = Math.round(Session.Entity.position[0] + 5 * mul_x);
-				y = Math.round(Session.Entity.position[1] + 5 * mul_y);
-
-				MapControl.onRequestWalk2(x, y);
-				event.stopImmediatePropagation();
-				return false;
-			case KEYS.RIGHT:
-				// Adjust right direction based on camera direction
-				switch(Camera.direction) {
-					case 0:
-						mul_x = 1;
-						mul_y = 0;
-						break;
-					case 1:
-						mul_x = 1;
-						mul_y = 1;
-						break;
-					case 2:
-						mul_x = 0;
-						mul_y = 1;
-						break;
-					case 3:
-						mul_x = -1;
-						mul_y = 1;
-						break;
-					case 4:
-					case -4:
-						mul_x = -1;
-						mul_y = 0;
-						break;
-					case -3:
-						mul_x = -1;
-						mul_y = -1;
-						break;
-					case -2:
-						mul_x = 0;
-						mul_y = -1;
-						break;
-					case -1:
-						mul_x = 1;
-						mul_y = -1;
-						break;
-				}
-
-				x = Math.round(Session.Entity.position[0] + 5 * mul_x);
-				y = Math.round(Session.Entity.position[1] + 5 * mul_y);
-
-				MapControl.onRequestWalk2(x, y);
-				event.stopImmediatePropagation();
-				return false;
-			case KEYS.LEFT:
-				// Adjust left direction based on camera direction
-				switch(Camera.direction) {
-					case 0:
-						mul_x = -1;
-						mul_y = 0;
-						break;
-					case 1:
-						mul_x = -1;
-						mul_y = -1;
-						break;
-					case 2:
-						mul_x = 0;
-						mul_y = -1;
-						break;
-					case 3:
-						mul_x = 1;
-						mul_y = -1;
-						break;
-					case 4:
-					case -4:
-						mul_x = 1;
-						mul_y = 0;
-						break;
-					case -3:
-						mul_x = 1;
-						mul_y = 1;
-						break;
-					case -2:
-						mul_x = 0;
-						mul_y = 1;
-						break;
-					case -1:
-						mul_x = -1;
-						mul_y = 1;
-						break;
-				}
-
-				x = Math.round(Session.Entity.position[0] + 5 * mul_x);
-				y = Math.round(Session.Entity.position[1] + 5 * mul_y);
-
-				MapControl.onRequestWalk2(x, y);
-				event.stopImmediatePropagation();
-				return false;
+		if(event.which !== KEYS.UP && event.which !== KEYS.DOWN
+		&& event.which !== KEYS.RIGHT && event.which !== KEYS.LEFT) {
+			return true;
 		}
+
+		var x = 0, y = 0;
+		var direction = [0];
+		var rotate = [];
+
+		// Get direction from keyboard
+		direction[0] = (event.which === KEYS.RIGHT ? +1 :
+		                event.which === KEYS.LEFT  ? -1 :
+		                0);
+
+		direction[1] = (event.which === KEYS.UP    ? +1 :
+		                event.which === KEYS.DOWN  ? -1 :
+		                0);
+
+		// Initialize matrix, based on Camera direction
+		mat2.identity(rotate);
+		mat2.rotate(rotate, rotate, Camera.direction * 45 / 180 * Math.PI);
+
+		// Apply matrix to vector
+		vec2.transformMat2(direction, direction, rotate);
+
+		// Round it
+		direction[0] = Math.round(direction[0]);
+		direction[1] = Math.round(direction[1]);
+
+		// Hack to reverse diagonal directions
+		// Demonstrate how it should be for the UP key
+		if(event.which == KEYS.UP && direction[0] == 1 && direction[1] == 1) {
+			direction[0] = -1;
+			direction[1] = 1;
+		}
+		else if(event.which == KEYS.UP && direction[0] == -1 && direction[1] == 1) {
+			direction[0] = 1;
+			direction[1] = 1;
+		}
+		else if(event.which == KEYS.UP && direction[0] == -1 && direction[1] == -1) {
+			direction[0] = 1;
+			direction[1] = -1;
+		}
+		else if(event.which == KEYS.UP && direction[0] == 1 && direction[1] == -1) {
+			direction[0] = -1;
+			direction[1] = -1;
+		}
+
+
+		x = Math.round(Session.Entity.position[0] + 5 * direction[0]);
+		y = Math.round(Session.Entity.position[1] + 5 * direction[1]);
+
+		// Direction
+		console.log('direction', direction)
+		console.log('x', x, 'y', y)
+
+		MapControl.onRequestWalk2(x, y);
+		//event.stopImmediatePropagation();
+		//return false;
 
 		return true;
 	});
