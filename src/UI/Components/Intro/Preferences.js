@@ -41,7 +41,7 @@ function(     Configs,        Context,        Preferences,               Audio, 
 		ui.find('.cursor').attr('checked', Graphics.cursor);
 		ui.find('.serverdef[value="'+ _preferences.serverdef +'"]').attr('checked', 'true').trigger('click');
 		ui.find('.clientinfo').val( _preferences.serverfile );
-		
+
 		ui.find('.bgmvol').val( Audio.BGM.volume * 100 ).trigger('change');
 		ui.find('.soundvol').val( Audio.Sound.volume * 100 ).trigger('change');
 
@@ -110,7 +110,7 @@ function(     Configs,        Context,        Preferences,               Audio, 
 				});
 			}
 		}
-		
+
 		Audio.BGM.volume    = ui.find('.bgmvol').val() / 100;
 		Audio.BGM.play      = Audio.BGM.volume > 0 ? true : false;
 		Audio.Sound.volume  = ui.find('.soundvol').val() / 100;

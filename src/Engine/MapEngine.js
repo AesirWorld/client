@@ -32,6 +32,7 @@ define(function( require )
 	var Entity           = require('Renderer/Entity/Entity');
 	var Altitude         = require('Renderer/Map/Altitude');
 	var MapControl       = require('Controls/MapControl');
+	var WalkKeys         = require('Controls/WalkKeysControl');
 	var Mouse            = require('Controls/MouseEventHandler');
 	var KEYS             = require('Controls/KeyEventHandler');
 	var UIManager        = require('UI/UIManager');
@@ -49,8 +50,6 @@ define(function( require )
 	var Emoticons        = require('UI/Components/Emoticons/Emoticons');
 	var SkillList        = require('UI/Components/SkillList/SkillList');
 	var PartyFriends     = require('UI/Components/PartyFriends/PartyFriends');
-
-	require('Controls/WalkKeysControl');
 
 
 	/**
@@ -128,7 +127,7 @@ define(function( require )
 
 		MapControl.init();
 		MapControl.onRequestWalk     = onRequestWalk;
-		MapControl.onRequestWalk2    = onRequestWalk2;
+		MapControl.onRequestWalkKeys = onRequestWalkKeys;
 		MapControl.onRequestStopWalk = onRequestStopWalk;
 
 
@@ -507,11 +506,15 @@ define(function( require )
 	 */
 	var _walkTimer = null;
 
-
 	/**
 	 * @var {number} Last delay to walk
 	 */
 	var _walkLastTick = 0;
+
+	/**
+	* @var {number} Last delay to walk (using Keyboard)
+	*/
+	var _walkKeysLastTick = 0;
 
 
 	/**
@@ -537,24 +540,56 @@ define(function( require )
 
 
 	/**
-	* Ask to move using keys
+	* Request to move from Keyboard
+	*
+	* @param {object} direction
 	*/
-	function onRequestWalk2(x, y)
+	function onRequestWalkKeys(direction)
 	{
 		Events.clearTimeout(_walkTimer);
 
-		// If siting, update direction
-		if (Session.Entity.action === Session.Entity.ACTION.SIT /*|| KEYS.SHIFT see: http://forum.robrowser.com/index.php?topic=32240#msg32446 */) {
-			Session.Entity.lookTo( x, y );
-
-			var pkt     = new PACKET.CZ.CHANGE_DIRECTION();
-			pkt.headDir = Session.Entity.headDir;
-			pkt.dir     = Session.Entity.direction;
-			Network.sendPacket(pkt);
+		// If siting, do nothing (to avoid spamming)
+		if (Session.Entity.action === Session.Entity.ACTION.SIT) {
 			return;
 		}
 
-		walkIntervalProcess2(x, y);
+		// Find farthest walkable cell (of a maxiumum of 5 cell distance)
+		var x, y;
+
+		for(var i = 1; i < 5; i++) {
+			var tx = Math.round(Session.Entity.position[0] + i * direction.x);
+			var ty = Math.round(Session.Entity.position[1] + i * direction.y);
+
+			if(!isFreeCell(tx, ty))
+				break;
+
+			// Update x and y
+			x = tx;
+			y = ty;
+		}
+
+		if(x && y) {
+			// setTimeout isn't accurate, so reduce the value
+			// to avoid possible errors.
+			if (_walkKeysLastTick + 450 > Renderer.tick) {
+				return;
+			}
+
+			var pkt = new PACKET.CZ.REQUEST_MOVE();
+
+			if (!checkFreeCell(direction.x, direction.y, 1, pkt.dest)) {
+				pkt.dest[0] = x;
+				pkt.dest[1] = y;
+			}
+
+			Network.sendPacket(pkt);
+
+			Events.clearTimeout(_walkTimer);
+			_walkTimer    =  Events.setTimeout(function() {
+				onRequestWalkKeys(direction);
+			}, 500);
+			_walkKeysLastTick = +Renderer.tick;
+		}
 	}
 
 
@@ -588,38 +623,6 @@ define(function( require )
 			if (!checkFreeCell(Mouse.world.x, Mouse.world.y, 1, pkt.dest)) {
 				pkt.dest[0] = Mouse.world.x;
 				pkt.dest[1] = Mouse.world.y;
-			}
-
-			Network.sendPacket(pkt);
-		}
-
-		Events.clearTimeout(_walkTimer);
-		_walkTimer    =  Events.setTimeout( walkIntervalProcess, 500);
-		_walkLastTick = +Renderer.tick;
-	}
-
-
-	/**
-	* Moving function
-	*/
-	function walkIntervalProcess2(x, y)
-	{
-		// setTimeout isn't accurate, so reduce the value
-		// to avoid possible errors.
-		if (_walkLastTick + 450 > Renderer.tick) {
-			return;
-		}
-
-		var isWalkable   = (x > -1 && y > -1);
-		var isCurrentPos = (Math.round(Session.Entity.position[0]) === x &&
-							Math.round(Session.Entity.position[1]) === y);
-
-		if (isWalkable && !isCurrentPos) {
-			var pkt = new PACKET.CZ.REQUEST_MOVE();
-
-			if (!checkFreeCell(x, y, 1, pkt.dest)) {
-				pkt.dest[0] = x;
-				pkt.dest[1] = y;
 			}
 
 			Network.sendPacket(pkt);

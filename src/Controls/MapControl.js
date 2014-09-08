@@ -43,15 +43,16 @@ define(function( require )
 
 
 	/**
-	 * Callback used when requesting to move somewhere
+	 * Callback used when requesting to move (w/ cursor)
 	 */
 	MapControl.onRequestWalk = function(){};
 
 
 	/**
-	* Callback used when requesting to move somewhere, using keys
+	* Callback used when requesting to move somewhere (w/ keyboard)
 	*/
-	MapControl.onRequestWalk2 = function(){};
+	MapControl.onRequestWalkKeys = function(direction){};
+
 
 	/**
 	 * Callback used when request to stop move

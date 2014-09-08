@@ -110,10 +110,6 @@ define(function( require )
 	Camera.rotationTo   =  360;
 	Camera.range        =  240;
 
-	setInterval(function() {
-		console.log(Camera.direction, 'direcition')
-	}, 3000);
-
 
 	/**
 	 * @var {object} Camera action informations (right click)
