@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>ROBrowser's App from http://www.robrowser.com</title>
+        <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+        <link href="favicon.ico" rel="icon" type="image/x-icon" />
+        <style type="text/css">
+            body, html { padding:0; margin:0; }
+        </style>
+        <script type="text/javascript">
+            var ROConfig = {
+                remoteClient:  "http://data.aesirworld.com/",
+                socketProxy:   'ws://127.0.0.1:5999/',
+                servers: [{
+                    display:   'Demo Server',
+                    desc:      "roBrowser's demo server",
+                    address:   '127.0.0.1',
+                    port:      6900,
+                    version:   25,
+                    langtype:  12,
+                    packetver: 20100730
+                }],
+                development: true,
+                packetKeys: true,
+                skipServerList: true,
+                skipIntro: true,
+                saveFiles: true
+            };
+        </script>
+        <script type="text/javascript" src="src/Vendors/require.js"></script>
+        <script type="text/javascript" src="src/App/Replay.js"></script>
+    </head>
+    <body>
+    </body>
+</html>

@@ -33,6 +33,11 @@ define(function()
 			}
 
 			url += host + ':' + port;
+
+			if (window.replay) {
+				console.log('window replay = true')
+				url += ':replay'
+			}
 		}
 
 		// Open Websocket

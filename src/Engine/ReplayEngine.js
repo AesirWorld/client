@@ -1,13 +1,13 @@
 /**
- * Engine/MapEngine.js
- *
- * Map Engine
- * Manage Map server
- *
- * This file is part of ROBrowser, Ragnarok Online in the Web Browser (http://www.robrowser.com/).
- *
- * @author Vincent Thibault
- */
+* Engine/MapEngine.js
+*
+* Map Engine
+* Manage Map server
+*
+* This file is part of ROBrowser, Ragnarok Online in the Web Browser (http://www.robrowser.com/).
+*
+* @author Vincent Thibault
+*/
 
 define(function( require )
 {
@@ -15,8 +15,8 @@ define(function( require )
 
 
 	/**
-	 * Load dependencies
-	 */
+	* Load dependencies
+	*/
 	var jQuery           = require('Utils/jquery');
 	var DB               = require('DB/DBManager');
 	var SoundManager     = require('Audio/SoundManager');
@@ -52,36 +52,38 @@ define(function( require )
 
 
 	/**
-	 * @var {string mapname}
-	 */
+	* @var {string mapname}
+	*/
 	var _mapName = '';
 
 
 	/**
-	 * @var {boolean} is initialized
-	 */
+	* @var {boolean} is initialized
+	*/
 	var _isInitialised = false;
 
 
 	/**
-	 * @namespace MapEngine
-	 */
+	* @namespace MapEngine
+	*/
 	var MapEngine = {};
 
 
 	/**
-	 * Connect to Map Server
-	 *
-	 * @param {number} IP
-	 * @param {number} port
-	 * @param {string} mapName
-	 */
-	MapEngine.init = function init( ip, port, mapName )
+	* Connect to Map Server
+	*
+	* @param {number} IP
+	* @param {number} port
+	* @param {string} mapName
+	*/
+	MapEngine.init = function init(mapName)
 	{
 		_mapName = mapName;
 
+		console.log('init map', mapName)
+
 		// Connect to char server
-		Network.connect( Network.utils.longToIP( ip ), port, function onconnect( success ) {
+		Network.connect( Network.utils.longToIP( '127.0.0.1' ), 5121, function onconnect( success ) {
 
 			// Force reloading map
 			MapRenderer.currentMap = '';
@@ -105,7 +107,7 @@ define(function( require )
 			Network.read(function(fp){
 				// if PACKETVER < 20070521, client send GID...
 				if (fp.length === 4) {
-					Session.Character.GID = fp.readLong();
+					Session.Character.GID = 2000000;
 				}
 			});
 
@@ -166,9 +168,9 @@ define(function( require )
 
 
 	/**
-	 * Pong from server
-	 * TODO: check the time ?
-	 */
+	* Pong from server
+	* TODO: check the time ?
+	*/
 	function onPong( pkt )
 	{
 		//pkt.time
@@ -176,22 +178,22 @@ define(function( require )
 
 
 	/**
-	 * Server update our account id
-	 *
-	 * @param {object} pkt - PACKET.ZC.AID
-	 */
+	* Server update our account id
+	*
+	* @param {object} pkt - PACKET.ZC.AID
+	*/
 	function onReceiveAccountID( pkt )
 	{
-		console.log(JSON.stringify(Session.Character))
+		Session.Character = JSON.parse('{"GID":150001,"exp":0,"money":0,"jobexp":0,"joblevel":1,"bodyState":0,"healthState":0,"effectState":0,"virtue":0,"honor":0,"jobpoint":0,"hp":42,"maxhp":42,"sp":11,"maxsp":11,"speed":150,"job":0,"head":2,"weapon":1,"level":1,"sppoint":0,"accessory":0,"shield":0,"accessory2":0,"accessory3":0,"headpalette":0,"bodypalette":0,"name":"Omega","Str":5,"Agi":5,"Vit":5,"Int":5,"Dex":5,"Luk":5,"CharNum":1,"haircolor":0,"bIsChangedCharName":1,"sex":1}')
 		Session.Character.GID = pkt.AID;
 	}
 
 
 	/**
-	 * Map accept us to enter the map
-	 *
-	 * @param {object} pkt - PACKET.ZC.ACCEPT_ENTER
-	 */
+	* Map accept us to enter the map
+	*
+	* @param {object} pkt - PACKET.ZC.ACCEPT_ENTER
+	*/
 	function onConnectionAccepted( pkt )
 	{
 		Session.Entity = new Entity( Session.Character );
@@ -224,18 +226,18 @@ define(function( require )
 
 		// Fix http://forum.robrowser.com/?topic=32177.0
 		onMapChange({
-			xPos:    pkt.PosDir[0],
-			yPos:    pkt.PosDir[1],
+			xPos:    150,
+			yPos:    150,
 			mapName: _mapName
 		});
 	}
 
 
 	/**
-	 * Changing map, loading new map
-	 *
-	 * @param {object} pkt - PACKET.ZC.NPCACK_MAPMOVE
-	 */
+	* Changing map, loading new map
+	*
+	* @param {object} pkt - PACKET.ZC.NPCACK_MAPMOVE
+	*/
 	function onMapChange( pkt )
 	{
 		jQuery(window).off('keydown.map');
@@ -289,10 +291,10 @@ define(function( require )
 
 
 	/**
-	 * Change zone server
-	 *
-	 * @param {object} pkt - PACKET.ZC.NPCACK_SERVERMOVE
-	 */
+	* Change zone server
+	*
+	* @param {object} pkt - PACKET.ZC.NPCACK_SERVERMOVE
+	*/
 	function onServerChange( pkt )
 	{
 		jQuery(window).off('keydown.map');
@@ -301,33 +303,19 @@ define(function( require )
 
 
 	/**
-	 * Ask the server to disconnect
-	 */
+	* Ask the server to disconnect
+	*/
 	function onExitRequest()
 	{
-		var pkt = new PACKET.CZ.REQUEST_QUIT();
-		Network.sendPacket(pkt);
 
-		// No Answer from the server, close it now
-		UIManager.removeComponents();
-		Network.close();
-		Renderer.stop();
-		MapRenderer.free();
-		SoundManager.stop();
-		BGM.stop();
-
-		Background.remove(function(){
-			window.close();
-			require('Engine/GameEngine').init();
-		});
 	}
 
 
 	/**
-	 * Server don't want us to disconnect yet
-	 *
-	 * @param {object} pkt - PACKET.ZC.REFUSE_QUIT
-	 */
+	* Server don't want us to disconnect yet
+	*
+	* @param {object} pkt - PACKET.ZC.REFUSE_QUIT
+	*/
 	function onExitFail( pkt )
 	{
 		ChatBox.addText( DB.getMessage(502), ChatBox.TYPE.ERROR);
@@ -335,10 +323,10 @@ define(function( require )
 
 
 	/**
-	 * Server accept to disconnect us
-	 *
-	 * @param {object} pkt - PACKET.ZC.REFUSE_QUIT
-	 */
+	* Server accept to disconnect us
+	*
+	* @param {object} pkt - PACKET.ZC.REFUSE_QUIT
+	*/
 	function onExitSuccess()
 	{
 		Renderer.stop();
@@ -359,8 +347,8 @@ define(function( require )
 
 
 	/**
-	 * Try to return to char-server
-	 */
+	* Try to return to char-server
+	*/
 	function onRestartRequest()
 	{
 		var pkt = new PACKET.CZ.RESTART();
@@ -370,8 +358,8 @@ define(function( require )
 
 
 	/**
-	 * Go back to save point request
-	 */
+	* Go back to save point request
+	*/
 	function onReturnSavePointRequest()
 	{
 		var pkt = new PACKET.CZ.RESTART();
@@ -381,8 +369,8 @@ define(function( require )
 
 
 	/**
-	 * Resurection feature
-	 */
+	* Resurection feature
+	*/
 	function onResurectionRequest()
 	{
 		var pkt = new PACKET.CZ.STANDING_RESURRECTION();
@@ -391,10 +379,10 @@ define(function( require )
 
 
 	/**
-	 * Does the server want you to return to char-server ?
-	 *
-	 * @param {object} pkt - PACKET.ZC.RESTART_ACK
-	 */
+	* Does the server want you to return to char-server ?
+	*
+	* @param {object} pkt - PACKET.ZC.RESTART_ACK
+	*/
 	function onRestartAnswer( pkt )
 	{
 		if (!pkt.type) {
@@ -414,9 +402,9 @@ define(function( require )
 
 
 	/**
-	 * Response from server to disconnect
-	 * @param pkt - {object}
-	 */
+	* Response from server to disconnect
+	* @param pkt - {object}
+	*/
 	function onDisconnectAnswer( pkt )
 	{
 		switch (pkt.result) {
@@ -441,12 +429,12 @@ define(function( require )
 
 
 	/**
-	 * ChatBox talk
-	 *
-	 * @param {string} user
-	 * @param {string} text
-	 * @param {number} target
-	 */
+	* ChatBox talk
+	*
+	* @param {string} user
+	* @param {string} text
+	* @param {number} target
+	*/
 	function onRequestTalk( user, text, target )
 	{
 		var pkt;
@@ -491,8 +479,8 @@ define(function( require )
 
 
 	/**
-	 * Remove cart/peco/falcon
-	 */
+	* Remove cart/peco/falcon
+	*/
 	function onRemoveOption()
 	{
 		var pkt = new PACKET.CZ.REQ_CARTOFF();
@@ -501,20 +489,20 @@ define(function( require )
 
 
 	/**
-	 * @var {number} walk timer
-	 */
+	* @var {number} walk timer
+	*/
 	var _walkTimer = null;
 
 
 	/**
-	 * @var {number} Last delay to walk
-	 */
+	* @var {number} Last delay to walk
+	*/
 	var _walkLastTick = 0;
 
 
 	/**
-	 * Ask to move
-	 */
+	* Ask to move
+	*/
 	function onRequestWalk()
 	{
 		Events.clearTimeout(_walkTimer);
@@ -535,8 +523,8 @@ define(function( require )
 
 
 	/**
-	 * Stop moving
-	 */
+	* Stop moving
+	*/
 	function onRequestStopWalk()
 	{
 		Events.clearTimeout(_walkTimer);
@@ -544,8 +532,8 @@ define(function( require )
 
 
 	/**
-	 * Moving function
-	 */
+	* Moving function
+	*/
 	function walkIntervalProcess()
 	{
 		// setTimeout isn't accurate, so reduce the value
@@ -556,7 +544,7 @@ define(function( require )
 
 		var isWalkable   = (Mouse.world.x > -1 && Mouse.world.y > -1);
 		var isCurrentPos = (Math.round(Session.Entity.position[0]) === Mouse.world.x &&
-		                    Math.round(Session.Entity.position[1]) === Mouse.world.y);
+							Math.round(Session.Entity.position[1]) === Mouse.world.y);
 
 		if (isWalkable && !isCurrentPos) {
 			var pkt = new PACKET.CZ.REQUEST_MOVE();
@@ -576,13 +564,13 @@ define(function( require )
 
 
 	/**
-	 * Search free cells around a position
-	 *
-	 * @param {number} x
-	 * @param {number} y
-	 * @param {number} range
-	 * @param {array} out
-	 */
+	* Search free cells around a position
+	*
+	* @param {number} x
+	* @param {number} y
+	* @param {number} range
+	* @param {array} out
+	*/
 	function checkFreeCell(x, y, range, out)
 	{
 		var _x, _y, r;
@@ -607,12 +595,12 @@ define(function( require )
 
 
 	/**
-	 * Does a cell is free (walkable, and no entity on)
-	 *
-	 * @param {number} x
-	 * @param {number} y
-	 * @param {returns} is free
-	 */
+	* Does a cell is free (walkable, and no entity on)
+	*
+	* @param {number} x
+	* @param {number} y
+	* @param {returns} is free
+	*/
 	function isFreeCell(x, y)
 	{
 		if (!(Altitude.getCellType(x, y) & Altitude.TYPE.WALKABLE)) {
@@ -623,7 +611,7 @@ define(function( require )
 
 		EntityManager.forEach(function(entity){
 			if (Math.round(entity.position[0]) === x &&
-			    Math.round(entity.position[1]) === y) {
+				Math.round(entity.position[1]) === y) {
 				free = false;
 				return false;
 			}
@@ -636,8 +624,8 @@ define(function( require )
 
 
 	/**
-	 * If the character moved to attack, once it finished to move ask to attack
-	 */
+	* If the character moved to attack, once it finished to move ask to attack
+	*/
 	function onWalkEnd()
 	{
 		// No action to do ?
@@ -657,11 +645,11 @@ define(function( require )
 
 
 	/**
-	 * Ask server to update status
-	 *
-	 * @param {number} id
-	 * @param {number} amount
-	 */
+	* Ask server to update status
+	*
+	* @param {number} id
+	* @param {number} amount
+	*/
 	function onRequestStatUpdate(id, amount)
 	{
 		var pkt          = new PACKET.CZ.STATUS_CHANGE();
@@ -673,11 +661,11 @@ define(function( require )
 
 
 	/**
-	 * Drop item to the floor
-	 *
-	 * @param {number} index in inventory
-	 * @param {number} count to drop
-	 */
+	* Drop item to the floor
+	*
+	* @param {number} index in inventory
+	* @param {number} count to drop
+	*/
 	MapEngine.onDropItem = function onDropItem( index, count )
 	{
 		if (count) {
@@ -690,10 +678,10 @@ define(function( require )
 
 
 	/**
-	 * Use an item
-	 *
-	 * @param {number} item's index
-	 */
+	* Use an item
+	*
+	* @param {number} item's index
+	*/
 	function onUseItem( index )
 	{
 		var pkt   = new PACKET.CZ.USE_ITEM();
@@ -704,11 +692,11 @@ define(function( require )
 
 
 	/**
-	 * Equip item
-	 *
-	 * @param {number} item's index
-	 * @param {number} where to equip
-	 */
+	* Equip item
+	*
+	* @param {number} item's index
+	* @param {number} where to equip
+	*/
 	function onEquipItem( index, location )
 	{
 		var pkt          = new PACKET.CZ.REQ_WEAR_EQUIP();
@@ -719,10 +707,10 @@ define(function( require )
 
 
 	/**
-	 * Take off an equip
-	 *
-	 * @param {number} index to unequip
-	 */
+	* Take off an equip
+	*
+	* @param {number} index to unequip
+	*/
 	function onUnEquip( index )
 	{
 		var pkt   = new PACKET.CZ.REQ_TAKEOFF_EQUIP();
@@ -732,11 +720,11 @@ define(function( require )
 
 
 	/**
-	 * Update config
-	 *
-	 * @param {number} config id (only type:0 is supported - equip)
-	 * @param {number} val
-	 */
+	* Update config
+	*
+	* @param {number} config id (only type:0 is supported - equip)
+	* @param {number} val
+	*/
 	function onConfigUpdate( type, val )
 	{
 		var pkt    = new PACKET.CZ.CONFIG();
@@ -747,8 +735,8 @@ define(function( require )
 
 
 	/**
-	 * Go back from map-server to char-server
-	 */
+	* Go back from map-server to char-server
+	*/
 	function onRestart()
 	{
 		require('Engine/CharEngine').reload();
@@ -756,7 +744,7 @@ define(function( require )
 
 
 	/**
-	 * Export
-	 */
+	* Export
+	*/
 	return MapEngine;
 });
