@@ -32,7 +32,7 @@ define(function( require )
 
 
 	/**
-	 * Where is the remote client located ? 
+	 * Where is the remote client located ?
 	 * @var {string} http
 	 */
 	FileManager.remoteClient = '';
@@ -59,7 +59,7 @@ define(function( require )
 	 */
 	FileManager.init = function Init( grfList )
 	{
-		
+
 		var i, count;
 		var list = [];
 
@@ -77,7 +77,7 @@ define(function( require )
 				while ((result = regex.exec(content))) {
 					list[ parseInt(result[1]) ] = result[2];
 				}
-	
+
 				// Remove empty slot from list
 				for (i = 0, count = list.length; i < count; ) {
 					if (list[i] === undefined) {
@@ -130,7 +130,7 @@ define(function( require )
 		try {
 			var grf = new GameFile();
 			grf.load(file);
-	
+
 			this.gameFiles.push(grf);
 
 			if (this.onGameFileLoaded) {
@@ -167,7 +167,6 @@ define(function( require )
 			var req    = new XMLHttpRequest();
 			req.open('POST', this.remoteClient, false);
 			req.setRequestHeader('Content-type','application/x-www-form-urlencoded');
-			req.setRequestHeader('X-Application', 'roBrowser');
 			req.overrideMimeType('text/plain; charset=ISO-8859-1');
 			req.send('filter=' + encodeURIComponent(regex.source));
 			return req.responseText.split('\n');
@@ -268,7 +267,6 @@ define(function( require )
 
 		var xhr = new XMLHttpRequest();
 		xhr.open('GET', this.remoteClient + filename, true);
-		xhr.setRequestHeader('X-Application', 'roBrowser');
 		xhr.responseType = 'arraybuffer';
 		xhr.onload = function(){
 			if (xhr.status == 200) {
