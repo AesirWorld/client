@@ -23,6 +23,7 @@ define(function( require )
 	var Action     = require('Loaders/Action');
 	var Str        = require('Loaders/Str');
 	var FileSystem = require('Core/FileSystem');
+	var WsFile     = require('Core/WsFile');
 
 
 	/**
@@ -237,6 +238,7 @@ define(function( require )
 				// Not in GRFs ? Try to load it from
 				// remote client host
 				FileManager.getHTTP( filename, callback);
+				//FileManager.getWsFile( filename, callback);
 			}
 		);
 	};
@@ -271,6 +273,7 @@ define(function( require )
 		xhr.onload = function(){
 			if (xhr.status == 200) {
 				callback( xhr.response );
+				//console.log(filename + " : " + parseInt(xhr.response.byteLength) + " : " + arrayBuffer2String(xhr.response).hashCode())
 				FileSystem.saveFile( filename, xhr.response );
 			}
 			else {
@@ -288,6 +291,44 @@ define(function( require )
 		catch(e) {
 			callback( null, 'Can\'t get file');
 		}
+	};
+
+	//var wsFile = new WsFile("ws://127.0.0.1:5050/")
+
+	/**
+	* Trying to load a file from the remote host
+	* Through a wsFile server websocket
+	*
+	* @param {string} filename
+	* @param {function} callback
+	*/
+	FileManager.getWsFile = function GetWsFile( filename, callback )
+	{
+		// Use http request here (ajax)
+		if (!this.remoteClient) {
+			callback(null);
+			return;
+		}
+
+		filename = filename.replace( /\\/g, '/');
+
+		// Don't load mp3 sounds to avoid blocking the queue
+		// They can be load by the HTML5 Audio / Flash directly.
+		if (filename.match(/\.(mp3|wav)$/)) {
+			callback(this.remoteClient + filename);
+			return;
+		}
+
+		wsFile.get(this.remoteClient + filename, function(data) {
+			if(typeof data === "undefined") {
+				callback(null, "failed to wsFetch")
+			}
+			else {
+				callback(data, null)
+				FileSystem.saveFile( filename, data );
+			}
+		})
+
 	};
 
 
