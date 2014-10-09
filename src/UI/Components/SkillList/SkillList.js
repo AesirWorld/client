@@ -203,7 +203,7 @@ define(function(require)
 		}
 
 		// Already in list, update it instead of duplicating it
-		if (this.ui.find('.skill .id' + skill.SKID + ':first').length) {
+		if (this.ui.find('.skill.id' + skill.SKID + ':first').length) {
 			this.updateSkill( skill );
 			return;
 		}
@@ -217,7 +217,7 @@ define(function(require)
 				'<td class="levelupcontainer"></td>' +
 				'<td class=selectable>' +
 					'<div class="name">' +
-						sk.SkillName  +'<br/>' +
+						jQuery.escape(sk.SkillName)  +'<br/>' +
 						'<span class="level">' +
 						(
 							sk.bSeperateLv ? 'Lv : <span class="current">'+ skill.level + '</span> / <span class="max">' + skill.level + '</span>'
@@ -283,14 +283,14 @@ define(function(require)
 		target.upgradable  = skill.upgradable;
 
 		// Update UI
-		element = this.ui.find('.skill .id' + skill.SKID + ':first');
+		element = this.ui.find('.skill.id' + skill.SKID + ':first');
 		element.find('.level .current, .level .max').text(skill.level);
 		element.find('.spcost').text(skill.spcost);
 
 		element.removeClass('active passive disabled');
 		element.addClass(!skill.level ? 'disabled' : skill.type ? 'active' : 'passive');
 
-		if (skill.upgradable) {
+		if (skill.upgradable && _points) {
 			element.find('.levelup').show();
 		}
 		else {
@@ -521,6 +521,13 @@ define(function(require)
 
 		skill = getSkillById(parseInt(main.data('index'), 10));
 
+		// Don't add the same UI twice, remove it
+		if (SkillDescription.uid === skill.SKID) {
+			SkillDescription.remove();
+			return;
+		}
+
+		// Add ui to window
 		SkillDescription.append();
 		SkillDescription.setSkill(skill.SKID);
 	}

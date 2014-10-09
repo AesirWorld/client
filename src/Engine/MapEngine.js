@@ -111,8 +111,9 @@ define(function( require )
 
 			// Ping
 			var ping = new PACKET.CZ.REQUEST_TIME();
+			var startTick = Date.now();
 			Network.setPing(function(){
-				ping.time = Date.now();
+				ping.clientTime = Date.now() - startTick;
 				Network.sendPacket(ping);
 			});
 		}, true);
@@ -127,6 +128,7 @@ define(function( require )
 		MapControl.init();
 		MapControl.onRequestWalk     = onRequestWalk;
 		MapControl.onRequestStopWalk = onRequestStopWalk;
+		MapControl.onRequestDropItem = onDropItem;
 
 
 		// Hook packets
@@ -158,10 +160,32 @@ define(function( require )
 		require('./MapEngine/Friends').init();
 
 		// Prepare UI
+		MiniMap.prepare();
+		Escape.prepare();
+		Inventory.prepare();
+		Equipment.prepare();
+		ShortCut.prepare();
+		ChatRoomCreate.prepare();
+		Emoticons.prepare();
+		SkillList.prepare();
 		PartyFriends.prepare();
 		StatusIcons.prepare();
 		BasicInfo.prepare();
 		ChatBox.prepare();
+
+		// Bind UI
+		WinStats.onRequestUpdate        = onRequestStatUpdate;
+		Equipment.onUnEquip             = onUnEquip;
+		Equipment.onConfigUpdate        = onConfigUpdate;
+		Equipment.onEquipItem           = onEquipItem;
+		Equipment.onRemoveOption        = onRemoveOption;
+		Inventory.onUseItem             = onUseItem;
+		Inventory.onEquipItem           = onEquipItem;
+		Escape.onExitRequest            = onExitRequest;
+		Escape.onCharSelectionRequest   = onRestartRequest;
+		Escape.onReturnSavePointRequest = onReturnSavePointRequest;
+		Escape.onResurectionRequest     = onResurectionRequest;
+		ChatBox.onRequestTalk           = onRequestTalk;
 	};
 
 
@@ -206,20 +230,6 @@ define(function( require )
 		BasicInfo.update('zeny', Session.Character.money );
 		BasicInfo.update('name', Session.Character.name );
 		BasicInfo.update('job',  Session.Character.job );
-
-		// Bind UI
-		WinStats.onRequestUpdate        = onRequestStatUpdate;
-		Equipment.onUnEquip             = onUnEquip;
-		Equipment.onConfigUpdate        = onConfigUpdate;
-		Equipment.onEquipItem           = onEquipItem;
-		Equipment.onRemoveOption        = onRemoveOption;
-		Inventory.onUseItem             = onUseItem;
-		Inventory.onEquipItem           = onEquipItem;
-		Escape.onExitRequest            = onExitRequest;
-		Escape.onCharSelectionRequest   = onRestartRequest;
-		Escape.onReturnSavePointRequest = onReturnSavePointRequest;
-		Escape.onResurectionRequest     = onResurectionRequest;
-		ChatBox.onRequestTalk           = onRequestTalk;
 
 		// Fix http://forum.robrowser.com/?topic=32177.0
 		onMapChange({
@@ -295,7 +305,7 @@ define(function( require )
 	function onServerChange( pkt )
 	{
 		jQuery(window).off('keydown.map');
-		init( pkt.addr.ip, pkt.addr.port, pkt.mapName );
+		MapEngine.init( pkt.addr.ip, pkt.addr.port, pkt.mapName );
 	}
 
 
@@ -404,7 +414,7 @@ define(function( require )
 			StatusIcons.clean();
 			ChatBox.clean();
 			ShortCut.clean();
-			PartyFriends.clean()
+			PartyFriends.clean();
 			MapRenderer.free();
 			Renderer.stop();
 			onRestart();
@@ -424,7 +434,7 @@ define(function( require )
 				StatusIcons.clean();
 				ChatBox.clean();
 				ShortCut.clean();
-				PartyFriends.clean()
+				PartyFriends.clean();
 				Renderer.stop();
 				onExitSuccess();
 				break;
@@ -677,7 +687,7 @@ define(function( require )
 	 * @param {number} index in inventory
 	 * @param {number} count to drop
 	 */
-	MapEngine.onDropItem = function onDropItem( index, count )
+	function onDropItem( index, count )
 	{
 		if (count) {
 			var pkt   = new PACKET.CZ.ITEM_THROW();

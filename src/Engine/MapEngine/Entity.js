@@ -71,6 +71,13 @@ define(function( require )
 		if (entity) {
 			entity.remove( pkt.type );
 		}
+
+		// Show escape menu
+		if (pkt.GID === Session.Entity.GID && pkt.type === 1) {
+			Escape.ui.show();
+			Escape.ui.find('.savepoint').show();
+			Escape.ui.find('.graphics, .sound, .hotkey').hide();
+		}
 	}
 
 
@@ -604,8 +611,10 @@ define(function( require )
 				srcEntity.dialog.set( ( (SkillInfo[pkt.SKID] && SkillInfo[pkt.SKID].SkillName ) || 'Unknown Skill' ) + ' !!' );
 			}
 
+			var action = (SkillInfo[pkt.SKID] && SkillInfo[pkt.SKID].ActionType) || 'SKILL';
+
 			srcEntity.setAction({
-				action: srcEntity.ACTION.SKILL,
+				action: srcEntity.ACTION[action],
 				frame:  0,
 				repeat: false,
 				play:   true,
@@ -960,6 +969,7 @@ define(function( require )
 		Network.hookPacket( PACKET.ZC.STOPMOVE,                     onEntityStopMove );
 		Network.hookPacket( PACKET.ZC.NOTIFY_ACT,                   onEntityAction );
 		Network.hookPacket( PACKET.ZC.NOTIFY_ACT2,                  onEntityAction );
+		Network.hookPacket( PACKET.ZC.NOTIFY_ACT3,                  onEntityAction );
 		Network.hookPacket( PACKET.ZC.NOTIFY_CHAT,                  onEntityTalk );
 		Network.hookPacket( PACKET.ZC.NPC_CHAT,                     onEntityTalkColor );
 		Network.hookPacket( PACKET.ZC.ACK_REQNAME,                  onEntityIdentity );

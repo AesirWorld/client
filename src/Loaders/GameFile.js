@@ -29,6 +29,12 @@ function(    GameFileDecrypt,         BinaryReader,         Struct,         Infl
 
 
 	/**
+	 * @var {File System} Nodejs
+	 */
+	var fs = self.requireNode && self.requireNode('fs');
+
+
+	/**
 	 * GRF Constants
 	 */
 	GRF.FILELIST_TYPE_FILE           = 0x01; // entry is a file
@@ -94,6 +100,13 @@ function(    GameFileDecrypt,         BinaryReader,         Struct,         Infl
 		// Helper
 		file.slice  = file.slice || file.webkitSlice || file.mozSlice;
 		reader.load = function( start, len ) {
+			// node.js
+			if (fs && file.fd) {
+				var buffer = new Buffer(len);
+				fs.readSync(file.fd, buffer, 0, len, start);
+				return (new Uint8Array(buffer)).buffer;
+			}
+
 			return reader.readAsArrayBuffer(
 				file.slice( start, start+len )
 			);
@@ -145,9 +158,11 @@ function(    GameFileDecrypt,         BinaryReader,         Struct,         Infl
 		entries = loadEntries(out, header.filecount);
 
 		// Store table data (used for regex search in tablelist)
+		// Set filename to lowercase (case insensitive in official client)
 		table.data = '';
 		for (i = 0, count = entries.length; i < count; ++i) {
-			table.data += entries[i].filename + '\0';
+			table.data          += entries[i].filename + '\0';
+			entries[i].filename  = entries[i].filename.toLowerCase();
 		}
 
 		// Sort entries (for binary search)
@@ -181,7 +196,7 @@ function(    GameFileDecrypt,         BinaryReader,         Struct,         Infl
 			pos++;
 
 			entries[i] = {
-				filename:       str.toLowerCase(),
+				filename:       str,
 				pack_size:      out[pos++] | out[pos++] << 8 | out[pos++] << 16 | out[pos++] << 24,
 				length_aligned: out[pos++] | out[pos++] << 8 | out[pos++] << 16 | out[pos++] << 24,
 				real_size:      out[pos++] | out[pos++] << 8 | out[pos++] << 16 | out[pos++] << 24,
@@ -299,6 +314,14 @@ function(    GameFileDecrypt,         BinaryReader,         Struct,         Infl
 			// Directory ?
 			if (!(entry.type & GRF.FILELIST_TYPE_FILE)) {
 				return false;
+			}
+
+			// node.js
+			if (fs && file.fd) {
+				var buffer = new Buffer(entry.length_aligned);
+				fs.readSync(this.file.fd, buffer, 0, entry.length_aligned, entry.offset + GRF.struct_header.size);
+				grf.decodeEntry( (new Uint8Array(buffer)).buffer, entry, callback);
+				return true;
 			}
 
 			blob = this.file.slice(

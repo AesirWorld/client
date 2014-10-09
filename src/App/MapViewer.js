@@ -47,7 +47,6 @@ function(
 	Mouse, MapControl,
 	Intro
 ) {
-
 	'use strict';
 
 
@@ -91,6 +90,7 @@ function(
 
 					switch (event.data.type) {
 						case 'init':
+							BGM.setAvailableExtensions(['mp3']);
 							Thread.delegate( event.source, event.origin );
 							Thread.init();
 							Renderer.init();
@@ -130,6 +130,7 @@ function(
 		else {
 			// Waiting for the Thread to be ready
 			q.add(function(){
+				BGM.setAvailableExtensions(['mp3']);
 				Thread.hook('THREAD_READY', q.next );
 				Thread.init();
 			});
@@ -156,7 +157,8 @@ function(
 			Intro.remove();
 
 			MapRenderer.onLoad = MapViewer.onLoad;
-			MapControl.call(MapViewer);
+			MapControl.init();
+			MapControl.onRequestWalk = MapViewer.onMouseDown;
 
 			// Direct access from API
 			if (Configs.get('API')) {
@@ -229,13 +231,6 @@ function(
 			MapViewer.spot.position[2] = Mouse.world.z;
 		}
 	};
-
-
-	/**
-	 * Mouse up on canvas
-	 * Nothing to do here
-	 */
-	MapViewer.onMouseUp = function OnMouseUp(){};
 
 
 	/**

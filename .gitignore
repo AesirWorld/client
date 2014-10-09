@@ -1,6 +1,8 @@
-chrome-app/settings.js
 webserver
-index.html
 
 # roBrowsers files, edited by AesirWorld
 #src/UI/Components/WinLogin
+
+index.html
+api.html
+applications/settings.js

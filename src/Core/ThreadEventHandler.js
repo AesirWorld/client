@@ -8,7 +8,6 @@
  * @author Vincent Thibault
  */
 
-
 importScripts('../Vendors/require.js');
 requirejs.config({
 	baseUrl: '../'

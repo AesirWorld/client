@@ -24,6 +24,7 @@ define(function( require )
 	var Str        = require('Loaders/Str');
 	var FileSystem = require('Core/FileSystem');
 	var WsFile     = require('Core/WsFile');
+	var fs         = self.requireNode && self.requireNode('fs');
 
 
 	/**
@@ -60,19 +61,25 @@ define(function( require )
 	 */
 	FileManager.init = function Init( grfList )
 	{
-
 		var i, count;
+		var content, files, result, regex;
+		var i, count, sortBySize = true;
 		var list = [];
 
 		// load GRFs from a file (DATA.INI)
 		if (typeof grfList === 'string') {
-			var files = FileSystem.search( grfList );
+			if (fs) {
+				content = fs.readFileSync(grfList);
+			}
+			else if ((files = FileSystem.search(grfList)).length) {
+				content = (new FileReaderSync()).readAsText(files[0]);
+			}
+			else {
+				grfList = /\.grf$/i;
+			}
 
-			if (files.length) {
-				var content = (new FileReaderSync()).readAsText(files[0]);
-
-				var result;
-				var regex = /(\d+)=([^\s]+)/g;
+			if (content) {
+				regex   = /(\d+)=([^\s]+)/g;
 
 				// Get a list of GRF
 				while ((result = regex.exec(content))) {
@@ -89,11 +96,8 @@ define(function( require )
 					i++;
 				}
 
-				grfList = list;
-			}
-
-			else {
-				grfList = /\.grf$/i;
+				grfList    = list;
+				sortBySize = false;
 			}
 		}
 
@@ -101,17 +105,27 @@ define(function( require )
 		if (grfList instanceof Array) {
 			list = grfList;
 			for (i = 0, count = list.length; i < count; ++i) {
+				if (fs && fs.existsSync(list[i])) {
+					list[i] = {
+						name: list[i],
+						size: fs.statSync(list[i]).size,
+						fd:   fs.openSync(list[i], 'r')
+					};
+					continue;
+				}
 				list[i] = FileSystem.getFileSync( list[i] );
 			}
-
-			list.sort(function(a,b){
-				return a.size - b.size;
-			});
 		}
 
 		// Search GRF from a regex
 		if (grfList instanceof RegExp) {
 			list = FileSystem.search( grfList );
+		}
+
+		if (sortBySize) {
+			list.sort(function(a,b){
+				return a.size - b.size;
+			});
 		}
 
 		// Load Game files
@@ -206,6 +220,11 @@ define(function( require )
 		// Trim the path
 		filename = filename.replace(/^\s+|\s+$/g, '');
 
+		if (fs && fs.existsSync(filename)) {
+			callback(fs.readFileSync(filename));
+			return;
+		}
+
 		// Search in filesystem
 		FileSystem.getFile(
 			filename,
@@ -259,6 +278,7 @@ define(function( require )
 		}
 
 		filename = filename.replace( /\\/g, '/');
+		var url  = filename.replace(/[^//]+/g, function(a){return encodeURIComponent(a);});
 
 		// Don't load mp3 sounds to avoid blocking the queue
 		// They can be load by the HTML5 Audio / Flash directly.
@@ -268,7 +288,7 @@ define(function( require )
 		}
 
 		var xhr = new XMLHttpRequest();
-		xhr.open('GET', this.remoteClient + filename, true);
+		xhr.open('GET', this.remoteClient + url, true);
 		xhr.responseType = 'arraybuffer';
 		xhr.onload = function(){
 			if (xhr.status == 200) {

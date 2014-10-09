@@ -101,10 +101,16 @@
 	 *
 	 * Supported value:
 	 *    a) YYYYMMDD     (number: date you want)
-	 *    b) 'auto'       (detect packetver from client and packets received from server)
 	 *    c) 'executable' (detect packetver from executable compilation date)
 	 */
 	ROBrowser.prototype.packetver    = 'auto';
+
+
+	/**
+	 * @var {number} character info block size
+	 * If not set, it will try to guess the type based on the packetver and the block total length
+	 */
+	ROBrowser.prototype.charBlockSize = 0;
 
 
 	/**
@@ -221,13 +227,20 @@
 
 
 	/**
+	 * @var {Object} Define plugin to execute
+	 * It will test each extensions until there is one it can read.
+	 */
+	ROBrowser.prototype.plugins = {};
+
+
+	/**
 	 * @var {string} roBrowser api window path
 	 */
 	ROBrowser.prototype.baseUrl = (function(){
 		var script = document.getElementsByTagName('script');
 		return script[ script.length -1 ].src
-			.replace(/\/build\/[^\/]+\.js.*/, '/api.js') // redirect compiled script
-			.replace(/\/src\/.*/, '/api.js');           // fix error with cache
+			.replace(/\/[^\/]+\.js.*/, '/api.js') // redirect compiled script
+			.replace(/\/src\/.*/, '/api.js');     // fix error with cache (FF)
 	})().replace('.js', '.html');
 
 
@@ -328,8 +341,8 @@
 		}
 
 		// Start waiting for robrowser
-		this._Interval  = setInterval( WaitForInitialization.bind(this), 100 );
-		window.addEventListener( 'message', OnMessage, false );
+		this._Interval = setInterval( WaitForInitialization.bind(this), 100 );
+		window.addEventListener('message', OnMessage, false );
 	};
 
 
@@ -354,6 +367,8 @@
 			autoLogin:        this.autoLogin,
 			version:          this.version,
 			clientHash:       this.clientHash,
+			plugins:          this.plugins,
+			charBlockSize:    this.charBlockSize,
 			BGMFileExtension: this.BGMFileExtension
 		}, '*');
 	}
@@ -363,5 +378,4 @@
 	 * Export
 	 */
 	window.ROBrowser = ROBrowser;
-
 })();

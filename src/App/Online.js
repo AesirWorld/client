@@ -23,6 +23,7 @@ require.onError = function (err) {
 };
 
 require( {
+	urlArgs: ROConfig.version,
 	baseUrl: './src/',
 	paths: {
 		text:   'Vendors/text.require',
@@ -35,10 +36,11 @@ require( {
 		}
 	}
 },
-	['Engine/GameEngine', 'Core/Context'],
-	function( GameEngine, Context) {
+	['Engine/GameEngine', 'Core/Context', 'Plugins/PluginManager'],
+	function(GameEngine,        Context,           Plugins) {
 		'use strict';
 
+		Plugins.init();
 		GameEngine.init();
 
 		if (!Context.Is.APP) {
