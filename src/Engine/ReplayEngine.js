@@ -1,750 +1,377 @@
 /**
-* Engine/MapEngine.js
-*
-* Map Engine
-* Manage Map server
-*
-* This file is part of ROBrowser, Ragnarok Online in the Web Browser (http://www.robrowser.com/).
-*
-* @author Vincent Thibault
-*/
+ * Engine/ReplayEngine.js
+ *
+ * Game replay processor 
+ * Process game replays and control its current buffer
+ *
+ * This file is part of ROBrowser, Ragnarok Online in the Web Browser (http://www.robrowser.com/).
+ *
+ * @author herenow
+ */
 
-define(function( require )
+define(function(require)
 {
 	'use strict';
 
-
 	/**
-	* Load dependencies
-	*/
-	var jQuery           = require('Utils/jquery');
-	var DB               = require('DB/DBManager');
-	var SoundManager     = require('Audio/SoundManager');
-	var BGM              = require('Audio/BGM');
-	var Events           = require('Core/Events');
-	var Session          = require('Engine/SessionStorage');
-	var Network          = require('Network/NetworkManager');
-	var PACKET           = require('Network/PacketStructure');
-	var Renderer         = require('Renderer/Renderer');
-	var Camera           = require('Renderer/Camera');
-	var MapRenderer      = require('Renderer/MapRenderer');
-	var EntityManager    = require('Renderer/EntityManager');
-	var Entity           = require('Renderer/Entity/Entity');
-	var Altitude         = require('Renderer/Map/Altitude');
-	var MapControl       = require('Controls/MapControl');
-	var Mouse            = require('Controls/MouseEventHandler');
-	var KEYS             = require('Controls/KeyEventHandler');
-	var UIManager        = require('UI/UIManager');
-	var Background       = require('UI/Background');
-	var Escape           = require('UI/Components/Escape/Escape');
-	var ChatBox          = require('UI/Components/ChatBox/ChatBox');
-	var MiniMap          = require('UI/Components/MiniMap/MiniMap');
-	var BasicInfo        = require('UI/Components/BasicInfo/BasicInfo');
-	var WinStats         = require('UI/Components/WinStats/WinStats');
-	var Inventory        = require('UI/Components/Inventory/Inventory');
-	var ShortCut         = require('UI/Components/ShortCut/ShortCut');
-	var Equipment        = require('UI/Components/Equipment/Equipment');
-	var StatusIcons      = require('UI/Components/StatusIcons/StatusIcons');
-	var ChatRoomCreate   = require('UI/Components/ChatRoomCreate/ChatRoomCreate');
-	var Emoticons        = require('UI/Components/Emoticons/Emoticons');
-	var SkillList        = require('UI/Components/SkillList/SkillList');
-	var PartyFriends     = require('UI/Components/PartyFriends/PartyFriends');
+	 * Dependencies
+	 */
+	var ApiDriver		 = require('Core/ApiDriver')
+	var MapEngine		 = require('Engine/MapEngine')
+	var BinaryReader	 = require('Utils/BinaryReader')
+	var Network          = require('Network/NetworkManager')
+	var MapRenderer		 = require('Renderer/MapRenderer')
+	var Session          = require('Engine/SessionStorage')
+	var Configs          = require('Core/Configs');
+	var Loading			 = require('UI/Components/Loading/Loading')
+	var ReplayInterface	 = require('UI/Components/ReplayInterface/Replay')
 
 
 	/**
-	* @var {string mapname}
-	*/
-	var _mapName = '';
+	 * @namespace
+	 */
+	var ReplayEngine = {}
+
+	
+	/**
+	 * JSON containing all replay data and state information
+	 */
+	ReplayEngine.replayData = {}
 
 
 	/**
-	* @var {boolean} is initialized
-	*/
-	var _isInitialised = false;
+	 * Connect to the API
+	 */
+	ReplayEngine.API = new ApiDriver( Configs.get("apiServer") )
 
-
+	
 	/**
-	* @namespace MapEngine
-	*/
-	var MapEngine = {};
+	 * Setup replay enviroment
+	 */
+	ReplayEngine.init = function init() {
+		// Replay uid from url hash
+		var uid = window.location.hash.substring(1)
 
+		if(!uid) {
+			this.showError("No replay ID specified, check your url.")
+			return
+		}
 
-	/**
-	* Connect to Map Server
-	*
-	* @param {number} IP
-	* @param {number} port
-	* @param {string} mapName
-	*/
-	MapEngine.init = function init(mapName)
-	{
-		_mapName = mapName;
+		// Loading ui
+		Loading.append()
+		ReplayInterface.append()
+	
+		// Retrive replay data from api
+		var self = this
+		var API  = this.API
 
-		console.log('init map', mapName)
-
-		// Connect to char server
-		Network.connect( Network.utils.longToIP( '127.0.0.1' ), 5121, function onconnect( success ) {
-
-			// Force reloading map
-			MapRenderer.currentMap = '';
-
-			// Fail to connect...
-			if (!success) {
-				UIManager.showErrorBox( DB.getMessage(1) );
-				return;
+		API.getReplay(uid, function(err, data) {
+			if(err) {
+				switch(err.code) {
+					case 404:
+						self.showError("Replay not found.")
+						break	
+					case 500:
+						self.showError("Replay currently unavailable, try again later.")
+						break
+					default:
+						self.showError("Ops, something went wrong while trying to find your replay, please try again later.")
+						break
+				}
+				return
 			}
+			
+			self.replayData = data
+			self.loadBuffer()
+		})
+	}
 
-			// Success, try to login.
-			var pkt        = new PACKET.CZ.ENTER();
-			pkt.AID        = Session.AID;
-			pkt.GID        = Session.GID;
-			pkt.AuthCode   = Session.AuthCode;
-			pkt.clientTime = Date.now();
-			pkt.Sex        = Session.Sex;
-			Network.sendPacket(pkt);
 
-			// Server send back AID
-			Network.read(function(fp){
-				// if PACKETVER < 20070521, client send GID...
-				if (fp.length === 4) {
-					Session.Character.GID = 2000000;
-				}
-			});
-
-			// Ping
-			var ping = new PACKET.CZ.REQUEST_TIME();
-			Network.setPing(function(){
-				ping.time = Date.now();
-				Network.sendPacket(ping);
-			});
-		}, true);
-
-		// Do not hook multiple time
-		if (_isInitialised) {
-			return;
+	/**
+	 * Load replay buffer
+	 */
+	ReplayEngine.loadBuffer = function load() {
+		var replay_uri = this.replayData.replay_buffer_uri
+		var self = this
+		if(! replay_uri) {
+			this.showError("Replay buffer couldn't be found.")
+			return
 		}
 
-		_isInitialised = true;
-
-		MapControl.init();
-		MapControl.onRequestWalk     = onRequestWalk;
-		MapControl.onRequestStopWalk = onRequestStopWalk;
-
-
-		// Hook packets
-		Network.hookPacket( PACKET.ZC.AID,                 onReceiveAccountID );
-		Network.hookPacket( PACKET.ZC.ACCEPT_ENTER,        onConnectionAccepted );
-		Network.hookPacket( PACKET.ZC.ACCEPT_ENTER2,       onConnectionAccepted );
-		Network.hookPacket( PACKET.ZC.NPCACK_MAPMOVE,      onMapChange );
-		Network.hookPacket( PACKET.ZC.NPCACK_SERVERMOVE,   onServerChange );
-		Network.hookPacket( PACKET.ZC.ACCEPT_QUIT,         onExitSuccess );
-		Network.hookPacket( PACKET.ZC.REFUSE_QUIT,         onExitFail );
-		Network.hookPacket( PACKET.ZC.RESTART_ACK,         onRestartAnswer );
-		Network.hookPacket( PACKET.ZC.ACK_REQ_DISCONNECT,  onDisconnectAnswer );
-		Network.hookPacket( PACKET.ZC.NOTIFY_TIME,         onPong );
-
-		// Extend controller
-		require('./MapEngine/Main').call();
-		require('./MapEngine/NPC').call();
-		require('./MapEngine/Entity').call();
-		require('./MapEngine/Item').call();
-		require('./MapEngine/PrivateMessage').call();
-		require('./MapEngine/Storage').call();
-		require('./MapEngine/Group').init();
-		require('./MapEngine/Guild').call();
-		require('./MapEngine/Skill').call();
-		require('./MapEngine/ChatRoom').call();
-		require('./MapEngine/Pet').call();
-		require('./MapEngine/Store').call();
-		require('./MapEngine/Trade').call();
-		require('./MapEngine/Friends').init();
-
-		// Prepare UI
-		PartyFriends.prepare();
-		StatusIcons.prepare();
-		BasicInfo.prepare();
-		ChatBox.prepare();
-	};
-
-
-	/**
-	* Pong from server
-	* TODO: check the time ?
-	*/
-	function onPong( pkt )
-	{
-		//pkt.time
-	}
-
-
-	/**
-	* Server update our account id
-	*
-	* @param {object} pkt - PACKET.ZC.AID
-	*/
-	function onReceiveAccountID( pkt )
-	{
-		Session.Character = JSON.parse('{"GID":150001,"exp":0,"money":0,"jobexp":0,"joblevel":1,"bodyState":0,"healthState":0,"effectState":0,"virtue":0,"honor":0,"jobpoint":0,"hp":42,"maxhp":42,"sp":11,"maxsp":11,"speed":150,"job":0,"head":2,"weapon":1,"level":1,"sppoint":0,"accessory":0,"shield":0,"accessory2":0,"accessory3":0,"headpalette":0,"bodypalette":0,"name":"Omega","Str":5,"Agi":5,"Vit":5,"Int":5,"Dex":5,"Luk":5,"CharNum":1,"haircolor":0,"bIsChangedCharName":1,"sex":1}')
-		Session.Character.GID = pkt.AID;
-	}
-
-
-	/**
-	* Map accept us to enter the map
-	*
-	* @param {object} pkt - PACKET.ZC.ACCEPT_ENTER
-	*/
-	function onConnectionAccepted( pkt )
-	{
-		Session.Entity = new Entity( Session.Character );
-		Session.Entity.onWalkEnd = onWalkEnd;
-
-		// Reset
-		Session.petId         =     0;
-		Session.hasParty      = false;
-		Session.isPartyLeader = false;
-
-		BasicInfo.update('blvl', Session.Character.level );
-		BasicInfo.update('jlvl', Session.Character.joblevel );
-		BasicInfo.update('zeny', Session.Character.money );
-		BasicInfo.update('name', Session.Character.name );
-		BasicInfo.update('job',  Session.Character.job );
-
-		// Bind UI
-		WinStats.onRequestUpdate        = onRequestStatUpdate;
-		Equipment.onUnEquip             = onUnEquip;
-		Equipment.onConfigUpdate        = onConfigUpdate;
-		Equipment.onEquipItem           = onEquipItem;
-		Equipment.onRemoveOption        = onRemoveOption;
-		Inventory.onUseItem             = onUseItem;
-		Inventory.onEquipItem           = onEquipItem;
-		Escape.onExitRequest            = onExitRequest;
-		Escape.onCharSelectionRequest   = onRestartRequest;
-		Escape.onReturnSavePointRequest = onReturnSavePointRequest;
-		Escape.onResurectionRequest     = onResurectionRequest;
-		ChatBox.onRequestTalk           = onRequestTalk;
-
-		// Fix http://forum.robrowser.com/?topic=32177.0
-		onMapChange({
-			xPos:    150,
-			yPos:    150,
-			mapName: _mapName
-		});
-	}
-
-
-	/**
-	* Changing map, loading new map
-	*
-	* @param {object} pkt - PACKET.ZC.NPCACK_MAPMOVE
-	*/
-	function onMapChange( pkt )
-	{
-		jQuery(window).off('keydown.map');
-
-		MapRenderer.onLoad = function(){
-
-			// TODO: find a better place to put it
-			jQuery(window).on('keydown.map', function( event ){
-				if (event.which === KEYS.INSERT) {
-					var pkt = new PACKET.CZ.REQUEST_ACT();
-					pkt.action = Session.Entity.action === Session.Entity.ACTION.SIT ? 3 : 2;
-					Network.sendPacket(pkt);
-					event.stopImmediatePropagation();
-					return false;
-				}
-			});
-
-			Session.Entity.set({
-				PosDir: [ pkt.xPos, pkt.yPos, 0 ],
-				GID: Session.Character.GID
-			});
-			EntityManager.add( Session.Entity );
-
-			// Initialize camera
-			Camera.setTarget( Session.Entity );
-			Camera.init();
-
-			// Add Game UI
-			MiniMap.append();
-			MiniMap.setMap( MapRenderer.currentMap );
-			ChatBox.append();
-			BasicInfo.append();
-			Escape.append();
-			Inventory.append();
-			Equipment.append();
-			StatusIcons.append();
-			ShortCut.append();
-			ChatRoomCreate.append();
-			Emoticons.append();
-			SkillList.append();
-			PartyFriends.append();
-
-			// Map loaded
-			Network.sendPacket(
-				new PACKET.CZ.NOTIFY_ACTORINIT()
-			);
-		};
-
-		MapRenderer.setMap( pkt.mapName );
-	}
-
-
-	/**
-	* Change zone server
-	*
-	* @param {object} pkt - PACKET.ZC.NPCACK_SERVERMOVE
-	*/
-	function onServerChange( pkt )
-	{
-		jQuery(window).off('keydown.map');
-		init( pkt.addr.ip, pkt.addr.port, pkt.mapName );
-	}
-
-
-	/**
-	* Ask the server to disconnect
-	*/
-	function onExitRequest()
-	{
-
-	}
-
-
-	/**
-	* Server don't want us to disconnect yet
-	*
-	* @param {object} pkt - PACKET.ZC.REFUSE_QUIT
-	*/
-	function onExitFail( pkt )
-	{
-		ChatBox.addText( DB.getMessage(502), ChatBox.TYPE.ERROR);
-	}
-
-
-	/**
-	* Server accept to disconnect us
-	*
-	* @param {object} pkt - PACKET.ZC.REFUSE_QUIT
-	*/
-	function onExitSuccess()
-	{
-		Renderer.stop();
-		MapRenderer.free();
-
-		UIManager.removeComponents();
-		Network.close();
-		Renderer.stop();
-		MapRenderer.free();
-		SoundManager.stop();
-		BGM.stop();
-
-		Background.remove(function(){
-			window.close();
-			require('Engine/GameEngine').init();
-		});
-	}
-
-
-	/**
-	* Try to return to char-server
-	*/
-	function onRestartRequest()
-	{
-		var pkt = new PACKET.CZ.RESTART();
-		pkt.type = 1;
-		Network.sendPacket(pkt);
-	}
-
-
-	/**
-	* Go back to save point request
-	*/
-	function onReturnSavePointRequest()
-	{
-		var pkt = new PACKET.CZ.RESTART();
-		pkt.type = 0;
-		Network.sendPacket(pkt);
-	}
-
-
-	/**
-	* Resurection feature
-	*/
-	function onResurectionRequest()
-	{
-		var pkt = new PACKET.CZ.STANDING_RESURRECTION();
-		Network.sendPacket(pkt);
-	}
-
-
-	/**
-	* Does the server want you to return to char-server ?
-	*
-	* @param {object} pkt - PACKET.ZC.RESTART_ACK
-	*/
-	function onRestartAnswer( pkt )
-	{
-		if (!pkt.type) {
-			// Have to wait 10sec
-			ChatBox.addText( DB.getMessage(502), ChatBox.TYPE.ERROR );
-		}
-		else {
-			StatusIcons.clean();
-			ChatBox.clean();
-			ShortCut.clean();
-			PartyFriends.clean()
-			MapRenderer.free();
-			Renderer.stop();
-			onRestart();
-		}
-	}
-
-
-	/**
-	* Response from server to disconnect
-	* @param pkt - {object}
-	*/
-	function onDisconnectAnswer( pkt )
-	{
-		switch (pkt.result) {
-			// Disconnect
-			case 0:
-				StatusIcons.clean();
-				ChatBox.clean();
-				ShortCut.clean();
-				PartyFriends.clean()
-				Renderer.stop();
-				onExitSuccess();
-				break;
-
-			case 1:
-				// Have to wait 10 sec
-				ChatBox.addText( DB.getMessage(502), ChatBox.TYPE.ERROR);
-				break;
-
-			default:
-		}
-	}
-
-
-	/**
-	* ChatBox talk
-	*
-	* @param {string} user
-	* @param {string} text
-	* @param {number} target
-	*/
-	function onRequestTalk( user, text, target )
-	{
-		var pkt;
-		var flag_party = text[0] === '%' || KEYS.CTRL;
-		var flag_guild = text[0] === '$' || KEYS.ALT;
-
-		text = text.replace(/^(\$|\%)/, '');
-
-		// Private messages
-		if (user.length) {
-			pkt          = new PACKET.CZ.WHISPER();
-			pkt.receiver = user;
-			pkt.msg      = text;
-			Network.sendPacket(pkt);
-			return;
-		}
-
-		// Set off/on flags
-		if (flag_party) {
-			target = (target & ~ChatBox.TYPE.PARTY) | (~target & ChatBox.TYPE.PARTY);
-		}
-
-		if (flag_guild) {
-			target = (target & ~ChatBox.TYPE.GUILD) | (~target & ChatBox.TYPE.GUILD);
-		}
-
-		// Get packet
-		if (target & ChatBox.TYPE.PARTY) {
-			pkt = new PACKET.CZ.REQUEST_CHAT_PARTY();
-		}
-		else if (target & ChatBox.TYPE.GUILD) {
-			pkt = new PACKET.CZ.GUILD_CHAT();
-		}
-		else {
-			pkt = new PACKET.CZ.REQUEST_CHAT();
-		}
-
-		// send packet
-		pkt.msg = Session.Entity.display.name + ' : ' + text;
-		Network.sendPacket(pkt);
-	}
-
-
-	/**
-	* Remove cart/peco/falcon
-	*/
-	function onRemoveOption()
-	{
-		var pkt = new PACKET.CZ.REQ_CARTOFF();
-		Network.sendPacket(pkt);
-	}
-
-
-	/**
-	* @var {number} walk timer
-	*/
-	var _walkTimer = null;
-
-
-	/**
-	* @var {number} Last delay to walk
-	*/
-	var _walkLastTick = 0;
-
-
-	/**
-	* Ask to move
-	*/
-	function onRequestWalk()
-	{
-		Events.clearTimeout(_walkTimer);
-
-		// If siting, update direction
-		if (Session.Entity.action === Session.Entity.ACTION.SIT /*|| KEYS.SHIFT see: http://forum.robrowser.com/index.php?topic=32240#msg32446 */) {
-			Session.Entity.lookTo( Mouse.world.x, Mouse.world.y );
-
-			var pkt     = new PACKET.CZ.CHANGE_DIRECTION();
-			pkt.headDir = Session.Entity.headDir;
-			pkt.dir     = Session.Entity.direction;
-			Network.sendPacket(pkt);
-			return;
-		}
-
-		walkIntervalProcess();
-	}
-
-
-	/**
-	* Stop moving
-	*/
-	function onRequestStopWalk()
-	{
-		Events.clearTimeout(_walkTimer);
-	}
-
-
-	/**
-	* Moving function
-	*/
-	function walkIntervalProcess()
-	{
-		// setTimeout isn't accurate, so reduce the value
-		// to avoid possible errors.
-		if (_walkLastTick + 450 > Renderer.tick) {
-			return;
-		}
-
-		var isWalkable   = (Mouse.world.x > -1 && Mouse.world.y > -1);
-		var isCurrentPos = (Math.round(Session.Entity.position[0]) === Mouse.world.x &&
-							Math.round(Session.Entity.position[1]) === Mouse.world.y);
-
-		if (isWalkable && !isCurrentPos) {
-			var pkt = new PACKET.CZ.REQUEST_MOVE();
-
-			if (!checkFreeCell(Mouse.world.x, Mouse.world.y, 1, pkt.dest)) {
-				pkt.dest[0] = Mouse.world.x;
-				pkt.dest[1] = Mouse.world.y;
+		// Retrieve
+		var xhr = new XMLHttpRequest()
+		xhr.open('GET', replay_uri, true)
+		xhr.responseType = 'arraybuffer'
+		xhr.onload = function(){
+			if (xhr.status == 200) {
+				self.replayBuffer = xhr.response
+				self.startReplay()
 			}
-
-			Network.sendPacket(pkt);
-		}
-
-		Events.clearTimeout(_walkTimer);
-		_walkTimer    =  Events.setTimeout( walkIntervalProcess, 500);
-		_walkLastTick = +Renderer.tick;
-	}
-
-
-	/**
-	* Search free cells around a position
-	*
-	* @param {number} x
-	* @param {number} y
-	* @param {number} range
-	* @param {array} out
-	*/
-	function checkFreeCell(x, y, range, out)
-	{
-		var _x, _y, r;
-		var d_x = Session.Entity.position[0] < x ? -1 : 1;
-		var d_y = Session.Entity.position[1] < y ? -1 : 1;
-
-		// Search possible positions
-		for (r = 0; r <= range; ++r) {
-			for (_x = -r; _x <= r; ++_x) {
-				for (_y = -r; _y <= r; ++_y) {
-					if (isFreeCell(x + _x * d_x, y + _y * d_y)) {
-						out[0] = x + _x * d_x;
-						out[1] = y + _y * d_y;
-						return true;
-					}
-				}
+			else {
+				self.showError("Replay buffer couldn't be found on the server.'")	
 			}
 		}
+		xhr.onerror = function(){
+			self.showError("Failed trying to fetch replay buffer from the server.")
+		}
 
-		return false;
+		// Can throw an error if not connected to internet
+		try {
+			xhr.send()
+		} catch(e) {
+			this.showerror("No internet connection?")	
+		}
+	}
+
+	/**
+	 * Start replay
+	 */
+	ReplayEngine.startReplay = function start() {
+		var buffer = this.replayBuffer
+		var self = this
+		
+		// Finish loading
+		Loading.remove()
+		
+		// Parse replay
+		this.fp = new BinaryReader(buffer)
+
+		// Validate state information
+		if(typeof this.replayData.state === 'undefined') {
+			this.showError("State information about this replay not found.")
+			return
+		}
+
+		// Load character state
+		Session.Character = this.replayData.state
+
+		// Setup sex, gid, aid
+		Session.Sex = (this.replayData.state.sex == 'F' ? 0 : 1) 
+		Session.Character.sex = Session.Sex
+		Session.GID = this.replayData.state.GID
+		Session.Character.GID = this.replayData.account_id
+		Session.AID = this.replayData.account_id
+
+		// Load state
+		if(this.replayData.state.startMap.slice(-4) != '.gat') {
+			this.replayData.state.startMap += '.gat'
+		}
+
+		var startMap = this.replayData.state.startMap
+
+		if(! startMap) {
+			this.showError("Missing start map state data.")
+			return
+		}
+		
+		MapEngine.init('0.0.0.0', '0', startMap)
+
+		// Intercept MapRenderer.onLoad func from MapEngine
+//		var nextFnc = MapRenderer.onLoad
+		
+//		MapRenderer.onLoad = function extendedMapRendererOnLoad() {
+			// Replay controller
+			// Start at 1x speed
+			self.playbackResume(1)
+		
+			// Give event back
+//			MapRenderer.onLoad = nextFnc
+//			nextFnc()
+//		}
 	}
 
 
 	/**
-	* Does a cell is free (walkable, and no entity on)
-	*
-	* @param {number} x
-	* @param {number} y
-	* @param {returns} is free
-	*/
-	function isFreeCell(x, y)
-	{
-		if (!(Altitude.getCellType(x, y) & Altitude.TYPE.WALKABLE)) {
-			return false;
+	 * Replay timer & properties
+	 */
+	ReplayEngine.playbackTimer = null
+	ReplayEngine.playbackSpeed = 128
+	ReplayEngine.elapsedTime = 0
+	ReplayEngine.lastFrameTick = 0
+	ReplayEngine.previousFrameOffset = 0
+	ReplayEngine.playbackIsPaused = true
+
+
+	/**
+	 * Replay playback controller
+	 */
+	ReplayEngine.playbackResume = function playbackResume() {
+		if(this.playbackIsPaused === false) {
+			return
+		}
+		
+		this.playbackIsPaused = false
+
+		// Recursive function
+		this.playbackNext()
+	}
+
+
+	/**
+	 * Set replay speed
+	 */
+	ReplayEngine.playbackSetSpeed = function playbackSetSpeed(speed) {
+		this.playbackSpeed = speed
+	}
+
+
+	/**
+	 * Pause playback
+	 */
+	ReplayEngine.playbackPause = function playbackPause() {
+		if(this.playbackIsPaused === true) {
+			console.log('PLAYBACK ALREADY PAUSED')
+			return
 		}
 
-		var free = true;
+		if(this.playbackTimer) {
+			clearTimeout(this.playbackTimer) // imediate stop of replay
+			this.movePreviousFrame() // move back to previous frame
+		}
 
-		EntityManager.forEach(function(entity){
-			if (Math.round(entity.position[0]) === x &&
-				Math.round(entity.position[1]) === y) {
-				free = false;
-				return false;
+		console.log("PAUSING PLAYBACK")
+
+		this.playbackIsPaused = true
+	}
+
+
+	/**
+	 * Replay playbacker
+	 */
+	var playbackNextID = 0
+	ReplayEngine.playbackNext = function playbackNext(id) {
+		var fp = this.fp
+
+		var wid = id || ++playbackNextID
+	
+		// Check if there are frames to be read
+		if(fp.tell() >= fp.length) {
+			this.replayEnd()
+			return
+		}
+
+		// Read frame
+		var frame = this.nextFrame()
+
+		// TODO: buf fix :(
+		// For some reason the replay buffer is ending with lots of empty bytes
+		if(frame.tick === 0 || frame.buffer.byteLength === 0) {
+			console.error("Unexpected end of replay file")
+			this.replayEnd()
+			return
+		}
+			
+		var delay = frame.tick - this.lastFrameTick
+
+		this.elaspedTime = Math.floor(frame.tick / 1000)
+
+		this.lastFrameTick = frame.tick
+
+		console.log('#', wid, 'elapsedTime', this.elaspedTime, 'frame.tick', frame.tick, 'nextDelay', delay, 'speed')
+
+		var self = this
+
+		delay = delay / this.playbackSpeed // Adjust replay spede
+
+		this.playbackTimer = this.playFrame(frame.buffer, delay, function() {
+			self.playbackNext(wid)
+		})
+	}
+	
+
+	/**
+	 * Get next replay frame
+	 * Binary format:
+	 * <4 bytes> for time tick
+	 * <4 bytes> payload length
+	 * <payload>
+	 *
+	 * @return
+	 * {
+	 *   tick: interval in millisecodns this frame should be played.
+	 *   buffer: raw network replay buffer
+	 * }
+	 */
+	ReplayEngine.nextFrame = function nextFrame() {
+		var fp = this.fp
+
+		this.previousFrameOffset = fp.offset
+
+		var tick = fp.readULong()
+		var payload_size = fp.readULong()
+		var payload = fp.buffer.slice(fp.offset, fp.offset + payload_size)
+
+		fp.seek(payload_size, SEEK_CUR); // move
+
+		return {
+			tick: tick,
+			buffer: payload
+		}
+	}
+
+
+	/**
+	 * Move back to previous frame
+	 * Once back, you can use this.nextFrame again
+	 *
+	 * @return moved_bytes
+	 */
+	ReplayEngine.movePreviousFrame = function moveBack2LastFrame() {
+		var fp = this.fp
+		var currentOffset = fp.offset
+
+		fp.seek(this.previousFrameOffset)
+
+		return this.previousFrameOffset
+	}
+
+	/**
+	 * Play a givenf frame
+	 *
+	 * @param {buffer} raw packet buffer
+	 * @param {delay} timeout delay
+	 * @param {callback}
+	 */
+	ReplayEngine.playFrame = function playFrame(buffer, delay, callback) {
+		var self = this
+		return setTimeout(function playFrameBuffer() {
+			if(self.playbackIsPaused) {
+				console.log("------- TRYING TO PLAYBACK WHILE PAUSED ------- ")
+				return
 			}
 
-			return true;
-		});
+			console.log("Sending replay packet")
+			Network.receive(buffer)
+			callback()
+		}, delay)
+	}
 
-		return free;
+	
+	/**
+	 * Print error to ui
+	 */
+	ReplayEngine.showError = function showError(err) {
+		Loading.remove()
+		console.error(err)
+		ReplayInterface.showError(err)
 	}
 
 
 	/**
-	* If the character moved to attack, once it finished to move ask to attack
-	*/
-	function onWalkEnd()
-	{
-		// No action to do ?
-		if (Session.moveAction) {
-			// Not sure why, but there is a synchronization error with the
-			// server when moving to attack (wrong position).
-			// So wait 50ms to be sure we are at the correct position before
-			// performing an action
-			Events.setTimeout(function(){
-				if (Session.moveAction) {
-					Network.sendPacket(Session.moveAction);
-					Session.moveAction = null;
-				}
-			}, 50);
-		}
+	 * End replay on ui
+	 */
+	ReplayEngine.replayEnd = function replayEnd() {
+		clearTimeout(this.playbackTimer)
+		console.log("END OF REPLAY")
+		ReplayInterface.showError("End of replay.")
 	}
 
-
-	/**
-	* Ask server to update status
-	*
-	* @param {number} id
-	* @param {number} amount
-	*/
-	function onRequestStatUpdate(id, amount)
-	{
-		var pkt          = new PACKET.CZ.STATUS_CHANGE();
-		pkt.statusID     = id;
-		pkt.changeAmount = amount;
-
-		Network.sendPacket(pkt);
+	window.onerror = function myErrorHandler(errorMsg, url, lineNumber) {
+		ReplayEngine.playbackNext()	
+		return true
 	}
-
-
 	/**
-	* Drop item to the floor
-	*
-	* @param {number} index in inventory
-	* @param {number} count to drop
-	*/
-	MapEngine.onDropItem = function onDropItem( index, count )
-	{
-		if (count) {
-			var pkt   = new PACKET.CZ.ITEM_THROW();
-			pkt.Index = index;
-			pkt.count = count;
-			Network.sendPacket(pkt);
-		}
-	}
-
-
-	/**
-	* Use an item
-	*
-	* @param {number} item's index
-	*/
-	function onUseItem( index )
-	{
-		var pkt   = new PACKET.CZ.USE_ITEM();
-		pkt.index = index;
-		pkt.AID   = Session.Entity.GID;
-		Network.sendPacket(pkt);
-	}
-
-
-	/**
-	* Equip item
-	*
-	* @param {number} item's index
-	* @param {number} where to equip
-	*/
-	function onEquipItem( index, location )
-	{
-		var pkt          = new PACKET.CZ.REQ_WEAR_EQUIP();
-		pkt.index        = index;
-		pkt.wearLocation = location;
-		Network.sendPacket(pkt);
-	}
-
-
-	/**
-	* Take off an equip
-	*
-	* @param {number} index to unequip
-	*/
-	function onUnEquip( index )
-	{
-		var pkt   = new PACKET.CZ.REQ_TAKEOFF_EQUIP();
-		pkt.index = index;
-		Network.sendPacket(pkt);
-	}
-
-
-	/**
-	* Update config
-	*
-	* @param {number} config id (only type:0 is supported - equip)
-	* @param {number} val
-	*/
-	function onConfigUpdate( type, val )
-	{
-		var pkt    = new PACKET.CZ.CONFIG();
-		pkt.Config = type;
-		pkt.Value  = val;
-		Network.sendPacket(pkt);
-	}
-
-
-	/**
-	* Go back from map-server to char-server
-	*/
-	function onRestart()
-	{
-		require('Engine/CharEngine').reload();
-	}
-
-
-	/**
-	* Export
-	*/
-	return MapEngine;
+	 * Export
+	 */
+	return ReplayEngine;
 });

@@ -26,6 +26,7 @@ define(function( require )
 	var ChromeSocket   = require('./SocketHelpers/ChromeSocket');
 	var JavaSocket     = require('./SocketHelpers/JavaSocket');
 	var WebSocket      = require('./SocketHelpers/WebSocket');
+	var SocketMock     = require('./SocketHelpers/SocketMock');
 	var getModule      = require;
 
 
@@ -88,8 +89,13 @@ define(function( require )
 		var socket, Socket;
 		var proxy = Configs.get('socketProxy', null);
 
+		// Use a mocked socket
+		if (Context.Is.REPLAY) {
+			Socket = SocketMock;
+		}
+
 		// Native socket
-		if (Context.Is.APP) {
+		else if (Context.Is.APP) {
 			Socket = ChromeSocket;
 		}
 
@@ -97,7 +103,7 @@ define(function( require )
 		else if (proxy) {
 			Socket = WebSocket;
 		}
-	
+
 		// Java socket...
 		else {
 			Socket = JavaSocket;
@@ -244,6 +250,7 @@ define(function( require )
 		var offset = 0;
 		var buffer;
 
+		console.log('network manager receive()')
 
 		// Waiting for data ? concat the buffer
 		if (_save_buffer) {
@@ -354,6 +361,8 @@ define(function( require )
 	{
 		var idx = _sockets.indexOf(this);
 
+		console.log("network manager socket close!")
+
 		if (this === _socket) {
 			console.warn('[Network] Disconnect from server');
 
@@ -377,6 +386,8 @@ define(function( require )
 	function close()
 	{
 		var idx;
+
+		console.log("network manager close()")
 
 		if (_socket) {
 			_socket.close();
@@ -446,6 +457,7 @@ define(function( require )
 	{
 		this.sendPacket     = sendPacket;
 		this.send           = send;
+		this.receive        = receive;
 		this.setPing        = setPing;
 		this.connect        = connect;
 		this.guessPacketVer = guessPacketVer;

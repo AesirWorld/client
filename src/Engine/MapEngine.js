@@ -26,6 +26,7 @@ define(function( require )
 	var Network          = require('Network/NetworkManager');
 	var PACKET           = require('Network/PacketStructure');
 	var Renderer         = require('Renderer/Renderer');
+	var Context          = require('Core/Context');
 	var Camera           = require('Renderer/Camera');
 	var MapRenderer      = require('Renderer/MapRenderer');
 	var EntityManager    = require('Renderer/EntityManager');
@@ -49,6 +50,8 @@ define(function( require )
 	var Emoticons        = require('UI/Components/Emoticons/Emoticons');
 	var SkillList        = require('UI/Components/SkillList/SkillList');
 	var PartyFriends     = require('UI/Components/PartyFriends/PartyFriends');
+	var getModule        = require;
+	var ReplayEngine     = null;
 
 
 	/**
@@ -80,42 +83,45 @@ define(function( require )
 	{
 		_mapName = mapName;
 
-		// Connect to char server
-		Network.connect( Network.utils.longToIP( ip ), port, function onconnect( success ) {
+		console.log(Context.Is.REPLAY)
+		if(! Context.Is.REPLAY) {
+			// Connect to char server
+			Network.connect( Network.utils.longToIP( ip ), port, function onconnect( success ) {
 
-			// Force reloading map
-			MapRenderer.currentMap = '';
+				// Force reloading map
+				MapRenderer.currentMap = '';
 
-			// Fail to connect...
-			if (!success) {
-				UIManager.showErrorBox( DB.getMessage(1) );
-				return;
-			}
-
-			// Success, try to login.
-			var pkt        = new PACKET.CZ.ENTER();
-			pkt.AID        = Session.AID;
-			pkt.GID        = Session.GID;
-			pkt.AuthCode   = Session.AuthCode;
-			pkt.clientTime = Date.now();
-			pkt.Sex        = Session.Sex;
-			Network.sendPacket(pkt);
-
-			// Server send back AID
-			Network.read(function(fp){
-				// if PACKETVER < 20070521, client send GID...
-				if (fp.length === 4) {
-					Session.Character.GID = fp.readLong();
+				// Fail to connect...
+				if (!success) {
+					UIManager.showErrorBox( DB.getMessage(1) );
+					return;
 				}
-			});
 
-			// Ping
-			var ping = new PACKET.CZ.REQUEST_TIME();
-			Network.setPing(function(){
-				ping.time = Date.now();
-				Network.sendPacket(ping);
-			});
-		}, true);
+				// Success, try to login.
+				var pkt        = new PACKET.CZ.ENTER();
+				pkt.AID        = Session.AID;
+				pkt.GID        = Session.GID;
+				pkt.AuthCode   = Session.AuthCode;
+				pkt.clientTime = Date.now();
+				pkt.Sex        = Session.Sex;
+				Network.sendPacket(pkt);
+
+				// Server send back AID
+				Network.read(function(fp){
+					// if PACKETVER < 20070521, client send GID...
+					if (fp.length === 4) {
+						Session.Character.GID = fp.readLong();
+					}
+				});
+
+				// Ping
+				var ping = new PACKET.CZ.REQUEST_TIME();
+				Network.setPing(function(){
+					ping.time = Date.now();
+					Network.sendPacket(ping);
+				});
+			}, true);
+		}
 
 		// Do not hook multiple time
 		if (_isInitialised) {
@@ -127,7 +133,6 @@ define(function( require )
 		MapControl.init();
 		MapControl.onRequestWalk     = onRequestWalk;
 		MapControl.onRequestStopWalk = onRequestStopWalk;
-
 
 		// Hook packets
 		Network.hookPacket( PACKET.ZC.AID,                 onReceiveAccountID );
@@ -157,6 +162,10 @@ define(function( require )
 		require('./MapEngine/Trade').call();
 		require('./MapEngine/Friends').init();
 
+		ReplayEngine = getModule('Engine/ReplayEngine')
+
+		console.log(ReplayEngine)
+
 		// Prepare UI
 		PartyFriends.prepare();
 		StatusIcons.prepare();
@@ -182,7 +191,6 @@ define(function( require )
 	 */
 	function onReceiveAccountID( pkt )
 	{
-		console.log(JSON.stringify(Session.Character))
 		Session.Character.GID = pkt.AID;
 	}
 
@@ -282,7 +290,17 @@ define(function( require )
 			Network.sendPacket(
 				new PACKET.CZ.NOTIFY_ACTORINIT()
 			);
+
+			// Unpause replay engine
+			if(Context.Is.REPLAY) {
+				ReplayEngine.playbackResume()
+			}
 		};
+
+		// Pause replay Engine
+		if(Context.Is.REPLAY) {
+			ReplayEngine.playbackPause()
+		}
 
 		MapRenderer.setMap( pkt.mapName );
 	}
@@ -422,6 +440,11 @@ define(function( require )
 		switch (pkt.result) {
 			// Disconnect
 			case 0:
+				console.log('disconnecting')
+				if(Context.Is.REPLAY) {
+					console.log("Intercepted disconnect exit")
+					return
+				}
 				StatusIcons.clean();
 				ChatBox.clean();
 				ShortCut.clean();
