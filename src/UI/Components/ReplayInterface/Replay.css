@@ -1,57 +1,86 @@
 #Replay .message {
-	position:fixed;
-	z-index:9999;
-	top:50%;
-	left:50%;
-	margin-left:-100px;
-	margin-top:-50px;
-	font-size:140%;
-	text-align:center;
-	color:#fff;
-	font-family:Verdana, Tahoma;
-	background:#000;
+    position:fixed;
+    z-index:9999;
+    top:50%;
+    left:50%;
+    margin-left:-100px;
+    margin-top:-50px;
+    font-size:140%;
+    text-align:center;
+    color:#fff;
+    font-family:Verdana, Tahoma;
+    background:#000;
 }
 
 #Replay .message div {
-	padding:25px 50px;
+    padding:25px 50px;
 }
 
 #Replay .controller {
-	position:fixed;
-	z-index:9999;
-	bottom:2%;
-	width:99%;
-	height:85px;
-	left:0.5%;
-	background:#000;
+    position:fixed;
+    z-index:9999;
+    bottom:2%;
+    width:99%;
+    height:80px;
+    left:0.5%;
+    background:#000;
 }
 
 #Replay .controller .progress {
-	background:#444;
-	width:100%;
-	height:10px;
+    background:#444;
+    width:100%;
+    height:10px;
 }
 
 #Replay .controller .fill {
-	background:#B20000;
-	width:0%;
-	height:100%;
+    background:#504F69;
+    float:left;
+    width:0%;
+    height:10px;
+}
+
+#Replay .controller .decoration {
+    margin-top:-10px;
+    position:absolute;
+    height:25px;
+    min-width:25px;
+    background-position:right;
+    background-repeat:no-repeat;
 }
 
 #Replay .controller .time {
-	padding-top:5px;
-	text-align:center;
-	font-size:110%;
-	color:#ccc;
+    padding-top:5px;
+    text-align:center;
+    font-size:110%;
+    color:#ccc;
 }
 
-#Replay .controller .control .play, #Replay .controller .control .pause {
-	float:left;
-	margin-right:20px;
-	height:60px;
-	width:52px;
-	background-repeat:no-repeat;
-	background-size:100%;
-	cursor:pointer;
+
+#Replay .control .state-buttons > div {
+    float:left;
+    cursor:pointer;
+    margin-left:10px;
+    width:40px;
+    height:40px;
+    background-repeat:no-repeat;
+    background-size:100%;
+    -webkit-transition: all 0.2s ease-in-out;
+    -moz-transition: all 0.2s ease-in-out;
+    -o-transition: all 0.2s ease-in-out;
+    transition: all 0.2s ease-in-out; 
+    opacity:0.5;
 }
 
+#Replay .control .state-buttons > div:hover {
+    opacity:0.25;
+}
+
+#Replay .paused_overlay {
+    width:100%;
+    height:100%;
+    top:0%;
+    left:0%;
+    background:#111;
+    position:fixed;
+    z-index:9998;
+}
