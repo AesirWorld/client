@@ -116,7 +116,7 @@ define(function(require) {
      * Load replay buffer
      */
     Replay.loadBuffer = function load() {
-        var replay_uri = this.replayData.replay_buffer_uri
+        var replay_uri = this.API.baseUrl + '/v1/replay/buffer/' + this.replayData.replay_buffer_id // TODO: proper uri generation
         var self = this
         if (!replay_uri) {
             this.showError("Replay buffer couldn't be found.")
