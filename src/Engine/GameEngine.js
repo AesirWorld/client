@@ -152,6 +152,7 @@ define(function( require )
 		// Replay context
 		if(Context.Is.REPLAY) {
 			q.add(function(){
+				BGM.setAvailableExtensions( Configs.get('BGMFileExtension', ['mp3']) );
 				ReplayEngine.init();
 			});
 		}

@@ -441,6 +441,7 @@ define(function( require )
 		this.hookPacket     = hookPacket;
 		this.close          = close;
 		this.read           = read;
+		this.receive        = receive;
 
 		var keys;
 		var i, count;
