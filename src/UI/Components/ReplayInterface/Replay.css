@@ -84,3 +84,18 @@
     position:fixed;
     z-index:9998;
 }
+
+#Replay .speed {
+	font-size:140%;
+	color:#fff;
+	float:right;
+	margin-right:20px;
+}
+
+#Replay .speed .speed_selector {
+	background:#111;
+	color:#fff;
+	border:none;
+	font-size:110%;
+	padding:5px;
+}

@@ -1,5 +1,5 @@
 /**
- * Engine/ReplayEngine.js
+ * Engine/Replay.js
  *
  * Game replay processor
  * Process game replays and control its current buffer
@@ -18,7 +18,7 @@ define(function(require) {
      * Dependencies
      */
     var ApiDriver = require('Core/ApiDriver')
-    var MapEngine = require('Engine/MapEngine')
+    var MapEngine = require('Engine/ReplayEngine/MapEngine')
     var BinaryReader = require('Utils/BinaryReader')
     var Network = require('Network/NetworkManager')
     var MapRenderer = require('Renderer/MapRenderer')
@@ -31,39 +31,40 @@ define(function(require) {
     /**
      * @namespace
      */
-    var ReplayEngine = {}
+    var Replay = {}
 
 
     /**
      * JSON containing all replay data and state information
      */
-    ReplayEngine.replayData = {}
+    Replay.replayData = {}
 
 
     /**
      * Connect to the API
      */
-    ReplayEngine.API = new ApiDriver(Configs.get("apiServer"))
+    Replay.API = new ApiDriver(Configs.get("apiServer"))
 
 
     /**
      * Replay properties
      */
-    ReplayEngine.playbackTimer = null
-    ReplayEngine.playbackSpeed = 8
-    ReplayEngine.totalTime = 0
-    ReplayEngine.elapsedTime = 0
-    ReplayEngine.timeTicked = 0
-    ReplayEngine.timeTickerTimer = null
-    ReplayEngine.lastFrameTick = 0
-    ReplayEngine.previousFrameOffset = 0
-    ReplayEngine.playbackIsPaused = true
+    Replay.playbackTimer = null
+    Replay.playbackSpeed = 1
+    Replay.playingFrame = null
+    Replay.totalTime = 0
+    Replay.elapsedTime = 0
+    Replay.timeTicked = 0
+    Replay.timeTickerTimer = null
+    Replay.lastFrameTick = 0
+    Replay.previousFrameOffset = 0
+    Replay.playbackIsPaused = true
 
 
     /**
      * Setup replay enviroment
      */
-    ReplayEngine.init = function init() {
+    Replay.init = function init() {
         // Replay uid from url hash
         var uid = window.location.hash.substring(1)
 
@@ -105,7 +106,7 @@ define(function(require) {
     /**
      * Load replay buffer
      */
-    ReplayEngine.loadBuffer = function load() {
+    Replay.loadBuffer = function load() {
         var replay_uri = this.replayData.replay_buffer_uri
         var self = this
         if (!replay_uri) {
@@ -141,7 +142,7 @@ define(function(require) {
     /**
      * Start replay
      */
-    ReplayEngine.startReplay = function start() {
+    Replay.startReplay = function start() {
         var buffer = this.replayBuffer
         var self = this
 
@@ -184,6 +185,10 @@ define(function(require) {
 
         MapEngine.init('0.0.0.0', '0', startMap)
 
+        // Custom hooks and extensions
+        require('./ReplayEngine/Hooks').call()
+        require('./ReplayEngine/Extends')
+
         // Replay start 
         self.timeTicker()
         self.playbackResume()
@@ -193,7 +198,7 @@ define(function(require) {
     /**
      * Replay playback controller
      */
-    ReplayEngine.playbackResume = function playbackResume() {
+    Replay.playbackResume = function playbackResume() {
         if (this.playbackIsPaused === false) {
             return
         }
@@ -208,9 +213,9 @@ define(function(require) {
 
 
     /**
-     * Set replay speed
+     * Set playback speed
      */
-    ReplayEngine.playbackSetSpeed = function playbackSetSpeed(speed) {
+    Replay.playbackSetSpeed = function playbackSetSpeed(speed) {
         this.playbackSpeed = speed
     }
 
@@ -218,15 +223,14 @@ define(function(require) {
     /**
      * Pause playback
      */
-    ReplayEngine.playbackPause = function playbackPause() {
+    Replay.playbackPause = function playbackPause() {
         if (this.playbackIsPaused === true) {
             return
         }
 
-        if (this.playbackTimer) {
-            clearTimeout(this.playbackTimer) // imediate stop of replay
-            this.movePreviousFrame() // move back to previous frame
-        }
+        clearTimeout(this.playbackTimer) // imediate stop playing frame
+                                         // the algorithm will replay unplayed frames
+                                         // immediately once it resumes
 
         ReplayInterface.pause()
 
@@ -237,8 +241,20 @@ define(function(require) {
     /**
      * Replay playbacker
      */
-    ReplayEngine.playbackNext = function playbackNext() {
+    Replay.playbackNext = function playbackNext() {
         var fp = this.fp
+        var self = this
+
+        // Check if there are any frames currenly playing
+        // If so, stop them, an play them immediately
+        if(this.playingFrame) {
+            var buffer = this.playingFrame.buffer
+
+            // Play imediately
+            clearTimeout(this.playbackTimer)
+            this.playFrame(buffer, 0) 
+            this.playingFrame = null
+        }
 
         // Check if there are frames to be read
         if (fp.tell() >= fp.length) {
@@ -257,17 +273,17 @@ define(function(require) {
             return
         }
 
-        var delay = frame.tick - this.lastFrameTick
+        var delay = (frame.tick - this.lastFrameTick) / this.playbackSpeed
 
+        // Debug message
+        console.log('%c[Replay] Queueing:', 'color:#bf9f00', 'FRAME_TICK: ' + frame.tick + ' - FRAME_SIZE: ' + frame.buffer.byteLength)
+
+        // Register current replay event
+        this.playingFrame = frame
         this.lastFrameTick = frame.tick
 
-        console.log('elapsedTime', this.elapsedTime, 'frame.tick', frame.tick, 'nextDelay', delay, 'speed')
-
-        var self = this
-
-        delay = delay / this.playbackSpeed // Adjust replay spede
-
-        this.playbackTimer = this.playFrame(frame.buffer, delay, function() {
+        this.playbackTimer = this.playFrame(frame.buffer, delay, function playFrameFinish() {
+            self.playingFrame = null
             self.elapsedTime = Math.floor(frame.tick / 1000)
             self.playbackNext()
         })
@@ -287,7 +303,7 @@ define(function(require) {
      *   buffer: raw network replay buffer
      * }
      */
-    ReplayEngine.nextFrame = function nextFrame() {
+    Replay.nextFrame = function nextFrame() {
         var fp = this.fp
 
         this.previousFrameOffset = fp.offset
@@ -311,7 +327,7 @@ define(function(require) {
      *
      * @return moved_bytes
      */
-    ReplayEngine.movePreviousFrame = function moveBack2LastFrame() {
+    Replay.movePreviousFrame = function moveBack2LastFrame() {
         var fp = this.fp
         var currentOffset = fp.offset
 
@@ -328,7 +344,7 @@ define(function(require) {
      * @param {delay} timeout delay
      * @param {callback}
      */
-    ReplayEngine.playFrame = function playFrame(buffer, delay, callback) {
+    Replay.playFrame = function playFrame(buffer, delay, callback) {
         var self = this
 
         return setTimeout(function playFrameBuffer() {
@@ -342,7 +358,9 @@ define(function(require) {
                 console.error(e)
             }
 
-            callback()
+            if(callback) {
+                callback()
+            }
         }, delay)
     }
 
@@ -350,7 +368,7 @@ define(function(require) {
     /**
      * Print error to ui
      */
-    ReplayEngine.showError = function showError(err) {
+    Replay.showError = function showError(err) {
         Loading.remove()
         console.error(err)
         ReplayInterface.showError(err)
@@ -360,7 +378,7 @@ define(function(require) {
     /**
      * End replay on ui
      */
-    ReplayEngine.replayEnd = function replayEnd() {
+    Replay.replayEnd = function replayEnd() {
         clearTimeout(this.timeTickerTimer)
         ReplayInterface.showEnd()
     }
@@ -370,15 +388,21 @@ define(function(require) {
      * Interface Events
      */
     ReplayInterface.onPause = function() {
-        ReplayEngine.playbackPause()
+        Replay.playbackPause()
     }
-
 
     /**
      * Interface Events
      */
     ReplayInterface.onPlay = function() {
-        ReplayEngine.playbackResume()
+        Replay.playbackResume()
+    }
+
+    /**
+     * Interface Events
+     */
+    ReplayInterface.onSelectSpeed = function(speed) {
+        Replay.playbackSetSpeed(speed)
     }
 
 
@@ -387,8 +411,8 @@ define(function(require) {
      * Since time and progress may not be updated every second
      * This ticker will emulate a constant time update
      */
-    ReplayEngine.timeTicker = function timeTicker() {
-        var self = ReplayEngine
+    Replay.timeTicker = function timeTicker() {
+        var self = Replay
         var speed = 1000 / self.playbackSpeed
         var progress = 0
 
@@ -413,9 +437,8 @@ define(function(require) {
         ReplayInterface.updateProgress(progress)
     }
 
-
     /**
      * Export
      */
-    return ReplayEngine;
+    return Replay;
 });

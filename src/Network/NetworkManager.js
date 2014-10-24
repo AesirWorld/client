@@ -250,8 +250,6 @@ define(function( require )
 		var offset = 0;
 		var buffer;
 
-		console.log('network manager receive()')
-
 		// Waiting for data ? concat the buffer
 		if (_save_buffer) {
 			var _data = new Uint8Array( _save_buffer.length + buf.byteLength );
@@ -361,8 +359,6 @@ define(function( require )
 	{
 		var idx = _sockets.indexOf(this);
 
-		console.log("network manager socket close!")
-
 		if (this === _socket) {
 			console.warn('[Network] Disconnect from server');
 
@@ -386,8 +382,6 @@ define(function( require )
 	function close()
 	{
 		var idx;
-
-		console.log("network manager close()")
 
 		if (_socket) {
 			_socket.close();

@@ -51,7 +51,6 @@ define(function( require )
 	var SkillList        = require('UI/Components/SkillList/SkillList');
 	var PartyFriends     = require('UI/Components/PartyFriends/PartyFriends');
 	var getModule        = require;
-	var ReplayEngine     = null;
 
 
 	/**
@@ -83,45 +82,42 @@ define(function( require )
 	{
 		_mapName = mapName;
 
-		console.log(Context.Is.REPLAY)
-		if(! Context.Is.REPLAY) {
-			// Connect to char server
-			Network.connect( Network.utils.longToIP( ip ), port, function onconnect( success ) {
+		// Connect to char server
+		Network.connect( Network.utils.longToIP( ip ), port, function onconnect( success ) {
 
-				// Force reloading map
-				MapRenderer.currentMap = '';
+			// Force reloading map
+			MapRenderer.currentMap = '';
 
-				// Fail to connect...
-				if (!success) {
-					UIManager.showErrorBox( DB.getMessage(1) );
-					return;
+			// Fail to connect...
+			if (!success) {
+				UIManager.showErrorBox( DB.getMessage(1) );
+				return;
+			}
+
+			// Success, try to login.
+			var pkt        = new PACKET.CZ.ENTER();
+			pkt.AID        = Session.AID;
+			pkt.GID        = Session.GID;
+			pkt.AuthCode   = Session.AuthCode;
+			pkt.clientTime = Date.now();
+			pkt.Sex        = Session.Sex;
+			Network.sendPacket(pkt);
+
+			// Server send back AID
+			Network.read(function(fp){
+				// if PACKETVER < 20070521, client send GID...
+				if (fp.length === 4) {
+					Session.Character.GID = fp.readLong();
 				}
+			});
 
-				// Success, try to login.
-				var pkt        = new PACKET.CZ.ENTER();
-				pkt.AID        = Session.AID;
-				pkt.GID        = Session.GID;
-				pkt.AuthCode   = Session.AuthCode;
-				pkt.clientTime = Date.now();
-				pkt.Sex        = Session.Sex;
-				Network.sendPacket(pkt);
-
-				// Server send back AID
-				Network.read(function(fp){
-					// if PACKETVER < 20070521, client send GID...
-					if (fp.length === 4) {
-						Session.Character.GID = fp.readLong();
-					}
-				});
-
-				// Ping
-				var ping = new PACKET.CZ.REQUEST_TIME();
-				Network.setPing(function(){
-					ping.time = Date.now();
-					Network.sendPacket(ping);
-				});
-			}, true);
-		}
+			// Ping
+			var ping = new PACKET.CZ.REQUEST_TIME();
+			Network.setPing(function(){
+				ping.time = Date.now();
+				Network.sendPacket(ping);
+			});
+		}, true);
 
 		// Do not hook multiple time
 		if (_isInitialised) {
@@ -161,10 +157,6 @@ define(function( require )
 		require('./MapEngine/Store').call();
 		require('./MapEngine/Trade').call();
 		require('./MapEngine/Friends').init();
-
-		ReplayEngine = getModule('Engine/ReplayEngine')
-
-		console.log(ReplayEngine)
 
 		// Prepare UI
 		PartyFriends.prepare();
@@ -290,17 +282,7 @@ define(function( require )
 			Network.sendPacket(
 				new PACKET.CZ.NOTIFY_ACTORINIT()
 			);
-
-			// Unpause replay engine
-			if(Context.Is.REPLAY) {
-				ReplayEngine.playbackResume()
-			}
 		};
-
-		// Pause replay Engine
-		if(Context.Is.REPLAY) {
-			ReplayEngine.playbackPause()
-		}
 
 		MapRenderer.setMap( pkt.mapName );
 	}
@@ -440,11 +422,6 @@ define(function( require )
 		switch (pkt.result) {
 			// Disconnect
 			case 0:
-				console.log('disconnecting')
-				if(Context.Is.REPLAY) {
-					console.log("Intercepted disconnect exit")
-					return
-				}
 				StatusIcons.clean();
 				ChatBox.clean();
 				ShortCut.clean();

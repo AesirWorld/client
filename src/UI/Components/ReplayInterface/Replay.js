@@ -10,7 +10,7 @@
 define(function(require)
 {
 	"use strict";
-
+   
 	/**
 	 * Dependencies
 	 */
@@ -26,15 +26,34 @@ define(function(require)
 	 */
 	var Replay = new UIComponent( 'Replay', htmlText, cssText );
 
+
 	/**
 	 * Initialize
 	 */
 	Replay.init = function Init()
 	{
-		this.replayTime = 0
-		this.replayTotalTime = 0
-		this.replayPaused = false
+		// Selectors
+		this.ui.message = this.ui.find('.message')
+		this.ui.controller = this.ui.find('.controller')	
+		this.ui.paused_overlay = this.ui.find('.paused_overlay')
+		this.ui.play = this.ui.find('.controller .control .play')
+		this.ui.pause = this.ui.find('.controller .control .pause')
+		this.ui.replay = this.ui.find('.controller .control .replay')
+		this.ui.speed = this.ui.find('.controller .speed .speed_selector')
+		this.ui.time = this.ui.find('.time')
+		this.ui.progress_bar = this.ui.find('.progress .fill')
+		this.ui.progress_decoration = this.ui.find('.progress .decoration')
+		
+		// Binds
+		this.ui.play.click(Replay.onPlay.bind(this))
+	  	this.ui.pause.click(Replay.onPause.bind(this))
+		this.ui.replay.click(Replay.onReplay.bind(this))
+		this.ui.speed.change(function() {
+			var speed = jQuery(this).val()
 
+			Replay.onSelectSpeed.call(this, speed)
+		})
+	
 		// Preload images
 		jQuery('style:first').append([
 			'#Replay .control .play { background-image:url(' + require.toUrl('./play.png') + ');}',
@@ -50,36 +69,26 @@ define(function(require)
 	 */
 	Replay.onAppend = function OnAppend()
 	{
-		var message = this.ui.find('.message')
-		var paused_overlay = this.ui.find('.paused_overlay')
-		var play = this.ui.find('.controller .control .play')
-		var pause = this.ui.find('.controller .control .pause')
-		var replay = this.ui.find('.controller .control .replay')
+		// Reset ui appearence
+		this.ui.message.fadeTo(0, 0.75)
+		this.ui.message.hide()
+		this.ui.paused_overlay.fadeTo(0, 0.85)
+		this.ui.paused_overlay.hide()
 
-		message.fadeTo(0, 0.75)
-		message.hide()
-		paused_overlay.fadeTo(0, 0.85)
-		paused_overlay.hide()
-		this.ui.find('.controller').fadeTo(0, 0.85)
-	
-		// Hide		
-		play.hide()
-		pause.hide()
-		replay.hide()
-
-		// Binds
-		play.click(Replay.onPlay.bind(this))
-		pause.click(Replay.onPause.bind(this))
-		replay.click(Replay.onReplay.bind(this))
+		// Reset control buttons 
+		this.ui.play.hide()
+		this.ui.pause.hide()
+		this.ui.replay.hide()
 	};
+
 
 	/**
 	 * Show a state control button and hide the rest
 	 */
 	Replay.showButton = function showButton(name) {
-		var play = this.ui.find('.controller .control .play')
-		var pause = this.ui.find('.controller .control .pause')
-		var replay = this.ui.find('.controller .control .replay')
+		var play = this.ui.play
+		var pause = this.ui.pause
+		var replay = this.ui.replay
 
 		// Hide all
 		play.hide()
@@ -99,21 +108,24 @@ define(function(require)
 		}	
 	}
 	
+
 	/**
 	 * Setup paused interface
 	 */
 	Replay.pause = function pause() {
-		this.ui.find('.paused_overlay').fadeIn('fast')
+		this.ui.paused_overlay.fadeIn('fast')
 		this.showButton("play")	
 	}
+
 
 	/**
 	 * Setup play interface
 	 */
 	Replay.play = function play() {
-		this.ui.find('.paused_overlay').fadeOut('fast')	
+		this.ui.paused_overlay.fadeOut('fast')	
 		this.showButton("pause")
 	}
+
 
 	/**
 	 * On Remove
@@ -126,27 +138,31 @@ define(function(require)
 		}, 0)
 	}
 
+
 	/**
 	 * Show message
 	 */
 	Replay.showMessage = function showMessage(msg) {
-		this.ui.find('.message div').html(msg)
-		this.ui.find('.message').show()
+		this.ui.message.find('div').html(msg)
+		this.ui.message.show()
 	}
+
 
 	/**
 	 * Show error
 	 */
 	Replay.showError = Replay.showMesage 
 
+
 	/**
 	 * End replay
 	 */
 	Replay.showEnd = function showEnd() {
-		this.ui.find('.paused_overlay').fadeIn('slow')
+		this.ui.paused_overlay.fadeIn('slow')
 		this.showMessage('End of replay.')
 		this.updateProgress(100)
 	}
+
 
 	/**
 	 * Update replat current time
@@ -158,7 +174,7 @@ define(function(require)
 		if(seconds < 10) seconds = "0" + seconds
 		if(minutes < 10) minutes = "0" + minutes
 		
-		this.ui.find('.time').html(minutes + ":" + seconds)
+		this.ui.time.html(minutes + ":" + seconds)
 	}
 
 
@@ -166,8 +182,8 @@ define(function(require)
 	 * UI update progress bar
 	 */
 	Replay.updateProgress = function(percentage) {
-		this.ui.find('.progress .fill').width(percentage + "%")
-		this.ui.find('.progress .decoration').width(percentage + "%")
+		this.ui.progress_bar.width(percentage + "%")
+		this.ui.progress_decoration.width(percentage + "%")
 	}
 
 
@@ -178,6 +194,8 @@ define(function(require)
 	Replay.onPause = function onClickPause() {}
 	Replay.onPlay  = function onClickPlay() {}
 	Replay.onReplay = function onClickReplay() {}
+	Replay.onSelectSpeed = function onSelectSpeed(speed) {} 
+
 
 	/**
 	 * Stored component and return it

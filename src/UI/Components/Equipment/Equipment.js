@@ -83,7 +83,6 @@ define(function(require)
 	{
 		_ctx = this.ui.find('canvas')[0].getContext('2d');
 
-		console.log("Equip init")
 		// Get button to open skill when level up
 		_btnLevelUp = jQuery('#lvlup_base')
 			.detach()
