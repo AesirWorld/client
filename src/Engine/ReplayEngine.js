@@ -70,7 +70,7 @@ define(function(require) {
         ReplayInterface.append()
 
         // Give time for the UI to load
-        setTimeout(this.loadReplay.bind(this), 1)
+        setTimeout(this.loadReplay.bind(this), 100)
     }
 
 
@@ -361,12 +361,14 @@ define(function(require) {
                 return
             }
 
+                Network.receive(buffer)
+            /*
             try {
                 Network.receive(buffer)
             } catch (e) {
                 console.error(e)
             }
-
+            */
             if(callback) {
                 callback()
             }
