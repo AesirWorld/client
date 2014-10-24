@@ -65,6 +65,19 @@ define(function(require) {
      * Setup replay enviroment
      */
     Replay.init = function init() {
+        // Loading ui
+        Loading.append()
+        ReplayInterface.append()
+
+        // Give time for the UI to load
+        setTimeout(this.loadReplay.bind(this), 1)
+    }
+
+
+    /**
+     * Load replay data
+     */
+    Replay.loadReplay = function loadReplay() {
         // Replay uid from url hash
         var uid = window.location.hash.substring(1)
 
@@ -72,10 +85,6 @@ define(function(require) {
             this.showError("No replay ID specified, check your url.")
             return
         }
-
-        // Loading ui
-        Loading.append()
-        ReplayInterface.append()
 
         // Retrive replay data from api
         var self = this

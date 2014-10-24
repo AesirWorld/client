@@ -105,26 +105,38 @@ define(function( require )
 		});
 
 		// Loading Game file (txt, lua, lub)
-		q.add(function(){
-			DB.onReady = function(){
-				Background.setImage( 'bgi_temp.bmp'); // remove loading
-				q._next();
-			};
-			DB.onProgress = function(i, count) {
-				Background.setPercent( Math.floor(i/count * 100) );
-			};
-			UIManager.removeComponents();
-			if(Context.Is.REPLAY === false) {
+		if(Context.Is.REPLAY === false) {
+			q.add(function(){
+				DB.onReady = function(){
+					Background.setImage( 'bgi_temp.bmp'); // remove loading
+					q._next();
+				};
+				DB.onProgress = function(i, count) {
+					Background.setPercent( Math.floor(i/count * 100) );
+				};
+				UIManager.removeComponents();
 				Background.init();
 				Background.resize( Renderer.width, Renderer.height );
 				Background.setImage( 'bgi_temp.bmp', function(){
 					DB.init();
 				});
-			}
-			else {
+			});
+		}
+		else {
+			q.add(function(){
+				DB.onReady = function(){
+					Background.setImage(); // remove loading
+					q._next();
+				};
+				DB.onProgress = function(i, count) {
+					Background.setPercent( Math.floor(i/count * 100) );
+				};
+				UIManager.removeComponents();
+				Background.init();
+				Background.resize( Renderer.width, Renderer.height );
 				DB.init();
-			}
-		});
+			});		
+		}
 
 		q.add(function(){
 			Thread.send('CLIENT_FILES_ALIAS', DB.mapalias );
@@ -145,9 +157,11 @@ define(function( require )
 		}
 
 		// Initialize Login
-		q.add(function(){
-			reload();
-		});
+		else {
+			q.add(function(){
+				reload();
+			});
+		}
 
 
 		Context.checkSupport();

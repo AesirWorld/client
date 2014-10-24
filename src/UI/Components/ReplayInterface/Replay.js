@@ -151,7 +151,9 @@ define(function(require)
 	/**
 	 * Show error
 	 */
-	Replay.showError = Replay.showMesage 
+	Replay.showError = function showError(msg) {
+		this.showMessage(msg)
+	}
 
 
 	/**
