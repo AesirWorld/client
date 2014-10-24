@@ -4,5 +4,6 @@ webserver
 #src/UI/Components/WinLogin
 
 index.html
+replay.html
 api.html
 applications/settings.js
