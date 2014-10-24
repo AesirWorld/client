@@ -10,7 +10,8 @@
         <script type="text/javascript">
             var ROConfig = {
                 remoteClient:  "http://data.aesirworld.com/",
-                socketProxy:   'ws://162.243.65.147:5999/',
+                socketProxy:   'ws://127.0.0.1:5999/',
+				apiServer:     'http://localhost:2020/',
                 servers: [{
                     display:   'Demo Server',
                     desc:      "roBrowser's demo server",
@@ -23,12 +24,12 @@
                 development: true,
                 packetKeys: true,
                 skipServerList: true,
-                skipIntro: false,
+                skipIntro: true,
                 saveFiles: true
             };
         </script>
         <script type="text/javascript" src="src/Vendors/require.js"></script>
-        <script type="text/javascript" src="src/App/Online.js"></script>
+        <script type="text/javascript" src="src/App/Replay.js"></script>
     </head>
     <body>
     </body>

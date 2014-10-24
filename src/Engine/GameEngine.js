@@ -34,6 +34,7 @@ define(function( require )
 	var Background  = require('UI/Background');
 	var Intro       = require('UI/Components/Intro/Intro');
 	var WinList     = require('UI/Components/WinList/WinList');
+	var ReplayEngine = require('Engine/ReplayEngine');
 
 
 	/**
@@ -113,11 +114,16 @@ define(function( require )
 				Background.setPercent( Math.floor(i/count * 100) );
 			};
 			UIManager.removeComponents();
-			Background.init();
-			Background.resize( Renderer.width, Renderer.height );
-			Background.setImage( 'bgi_temp.bmp', function(){
+			if(Context.Is.REPLAY === false) {
+				Background.init();
+				Background.resize( Renderer.width, Renderer.height );
+				Background.setImage( 'bgi_temp.bmp', function(){
+					DB.init();
+				});
+			}
+			else {
 				DB.init();
-			});
+			}
 		});
 
 		q.add(function(){
@@ -130,6 +136,13 @@ define(function( require )
 			Scrollbar.init();
 			Cursor.init(q.next);
 		});
+
+		// Replay context
+		if(Context.Is.REPLAY) {
+			q.add(function(){
+				ReplayEngine.init();
+			});
+		}
 
 		// Initialize Login
 		q.add(function(){
